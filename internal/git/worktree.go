@@ -99,6 +99,45 @@ func FindWorktreeByBranch(branch string) (*Worktree, error) {
 	return nil, nil
 }
 
+// FindWorktreeByBranchOrDir finds a worktree by branch name or directory name.
+// It first tries to match by branch name, then by directory name (relative path from base dir).
+func FindWorktreeByBranchOrDir(query string) (*Worktree, error) {
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		return nil, err
+	}
+
+	// First, try to find by branch name
+	for _, wt := range worktrees {
+		if wt.Branch == query {
+			return &wt, nil
+		}
+	}
+
+	// Get worktree base directory for relative path comparison
+	baseDir, err := GetWorktreeBaseDir()
+	if err != nil {
+		return nil, err
+	}
+
+	// Then, try to find by directory name (relative path from base dir)
+	for _, wt := range worktrees {
+		relPath, err := filepath.Rel(baseDir, wt.Path)
+		if err != nil {
+			continue
+		}
+		// Skip if the path is outside the base dir (starts with ..)
+		if strings.HasPrefix(relPath, "..") {
+			continue
+		}
+		if relPath == query {
+			return &wt, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // AddWorktree creates a new worktree for the given branch.
 func AddWorktree(path, branch string, copyOpts CopyOptions) error {
 	// Get source root before creating worktree

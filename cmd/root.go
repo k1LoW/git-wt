@@ -24,6 +24,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/k1LoW/git-wt/internal/git"
 	"github.com/k1LoW/git-wt/version"
@@ -131,18 +133,33 @@ func runRoot(cmd *cobra.Command, args []string) error {
 }
 
 func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Collect unique branch names
+	// Collect unique branch names and worktree directory names
 	seen := make(map[string]struct{})
 	var completions []string
 
-	// Add branches from existing worktrees
+	// Get worktree base directory for relative path calculation
+	baseDir, _ := git.GetWorktreeBaseDir()
+
+	// Add branches and directory names from existing worktrees
 	worktrees, err := git.ListWorktrees()
 	if err == nil {
 		for _, wt := range worktrees {
+			// Add branch name
 			if wt.Branch != "" && wt.Branch != "(detached)" {
 				if _, exists := seen[wt.Branch]; !exists {
 					seen[wt.Branch] = struct{}{}
 					completions = append(completions, wt.Branch)
+				}
+			}
+
+			// Add worktree directory name (relative path from base dir)
+			if baseDir != "" {
+				relPath, err := filepath.Rel(baseDir, wt.Path)
+				if err == nil && !strings.HasPrefix(relPath, "..") {
+					if _, exists := seen[relPath]; !exists {
+						seen[relPath] = struct{}{}
+						completions = append(completions, relPath)
+					}
 				}
 			}
 		}
@@ -216,14 +233,14 @@ func listWorktrees() error {
 }
 
 func deleteWorktree(branch string, force bool) error {
-	// Find worktree by branch
-	wt, err := git.FindWorktreeByBranch(branch)
+	// Find worktree by branch or directory name
+	wt, err := git.FindWorktreeByBranchOrDir(branch)
 	if err != nil {
 		return fmt.Errorf("failed to find worktree: %w", err)
 	}
 
 	if wt == nil {
-		return fmt.Errorf("no worktree found for branch '%s'", branch)
+		return fmt.Errorf("no worktree found for branch or directory '%s'", branch)
 	}
 
 	// Remove worktree
@@ -249,8 +266,8 @@ func deleteWorktree(branch string, force bool) error {
 }
 
 func handleWorktree(branch string) error {
-	// Check if worktree already exists for this branch
-	wt, err := git.FindWorktreeByBranch(branch)
+	// Check if worktree already exists for this branch or directory name
+	wt, err := git.FindWorktreeByBranchOrDir(branch)
 	if err != nil {
 		return fmt.Errorf("failed to find worktree: %w", err)
 	}
