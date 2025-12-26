@@ -33,25 +33,25 @@ Download binary from [releases page](https://github.com/k1LoW/git-wt/releases)
 
 Add the following to your shell config to enable worktree switching and completion:
 
-**bash (~/.bashrc):**
-
-``` bash
-eval "$(git-wt --init bash)"
-```
-
 **zsh (~/.zshrc):**
 
 ``` zsh
 eval "$(git-wt --init zsh)"
 ```
 
-**fish (~/.config/fish/config.fish):**
+**bash (~/.bashrc):** (experimental)
+
+``` bash
+eval "$(git-wt --init bash)"
+```
+
+**fish (~/.config/fish/config.fish):** (experimental)
 
 ``` fish
 git-wt --init fish | source
 ```
 
-**powershell ($PROFILE):**
+**powershell ($PROFILE):** (experimental)
 
 ``` powershell
 Invoke-Expression (git-wt --init powershell | Out-String)
