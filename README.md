@@ -70,7 +70,7 @@ eval "$(git-wt --init zsh --no-switch-directory)"
 
 Configuration is done via `git config`.
 
-### `wt.basedir`
+#### `wt.basedir`
 
 Worktree base directory.
 
@@ -83,7 +83,7 @@ Supported template variables:
 
 Default: `../{gitroot}-wt`
 
-### `wt.copyignored`
+#### `wt.copyignored`
 
 Copy files ignored by `.gitignore` (e.g., `.env`) to new worktrees.
 
@@ -93,7 +93,7 @@ $ git config wt.copyignored true
 
 Default: `false`
 
-### `wt.copyuntracked`
+#### `wt.copyuntracked`
 
 Copy untracked files (not yet added to git) to new worktrees.
 
@@ -103,7 +103,7 @@ $ git config wt.copyuntracked true
 
 Default: `false`
 
-### `wt.copymodified`
+#### `wt.copymodified`
 
 Copy modified files (tracked but with uncommitted changes) to new worktrees.
 
