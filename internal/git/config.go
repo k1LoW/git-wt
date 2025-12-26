@@ -30,7 +30,7 @@ func GetConfig(key string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetRepoRoot returns the root directory of the current git repository.
+// GetRepoRoot returns the root directory of the current git repository (or worktree).
 func GetRepoRoot() (string, error) {
 	cmd, err := gitCommand("rev-parse", "--show-toplevel")
 	if err != nil {
@@ -41,6 +41,32 @@ func GetRepoRoot() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// GetMainRepoRoot returns the root directory of the main git repository.
+// Unlike GetRepoRoot, this returns the main repository root even when called from a worktree.
+func GetMainRepoRoot() (string, error) {
+	cmd, err := gitCommand("rev-parse", "--git-common-dir")
+	if err != nil {
+		return "", err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	gitCommonDir := strings.TrimSpace(string(out))
+
+	// If git-common-dir is relative (e.g., ".git"), resolve it from current repo root
+	if !filepath.IsAbs(gitCommonDir) {
+		repoRoot, err := GetRepoRoot()
+		if err != nil {
+			return "", err
+		}
+		gitCommonDir = filepath.Join(repoRoot, gitCommonDir)
+	}
+
+	// The main repo root is the parent of the .git directory
+	return filepath.Dir(gitCommonDir), nil
 }
 
 // GetRepoName returns the name of the current git repository (directory name).
@@ -87,6 +113,7 @@ func expandTemplate(s string) (string, error) {
 }
 
 // ExpandPath expands ~ to home directory and resolves relative paths.
+// Relative paths are resolved from the main repository root, not the current worktree.
 func ExpandPath(path string) (string, error) {
 	// Expand ~
 	if strings.HasPrefix(path, "~/") {
@@ -104,16 +131,16 @@ func ExpandPath(path string) (string, error) {
 		return filepath.Clean(path), nil
 	}
 
-	// Resolve relative path from repo root
-	repoRoot, err := GetRepoRoot()
+	// Resolve relative path from main repo root (not current worktree)
+	repoRoot, err := GetMainRepoRoot()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Clean(filepath.Join(repoRoot, path)), nil
 }
 
-// GetWorktreePath returns the full path for a worktree given a branch name.
-func GetWorktreePath(branch string) (string, error) {
+// GetWorktreeBaseDir returns the expanded base directory for worktrees.
+func GetWorktreeBaseDir() (string, error) {
 	baseDir, err := GetBaseDir()
 	if err != nil {
 		return "", err
@@ -127,6 +154,16 @@ func GetWorktreePath(branch string) (string, error) {
 
 	// Expand path (~ and relative paths)
 	baseDir, err = ExpandPath(baseDir)
+	if err != nil {
+		return "", err
+	}
+
+	return baseDir, nil
+}
+
+// GetWorktreePath returns the full path for a worktree given a branch name.
+func GetWorktreePath(branch string) (string, error) {
+	baseDir, err := GetWorktreeBaseDir()
 	if err != nil {
 		return "", err
 	}
