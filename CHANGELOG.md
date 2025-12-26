@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.2.3](https://github.com/k1LoW/git-wt/compare/v0.2.2...v0.2.3) - 2025-12-26
+### Fix bug 🐛
+- fix: enhance worktree handling with directory name support by @k1LoW in https://github.com/k1LoW/git-wt/pull/11
+
 ## [v0.2.2](https://github.com/k1LoW/git-wt/compare/v0.2.1...v0.2.2) - 2025-12-26
 ### Fix bug 🐛
 - fix: support multiple arguments for `git wt` wrappers by @k1LoW in https://github.com/k1LoW/git-wt/pull/8
