@@ -207,9 +207,9 @@ func TestE2E_ListWorktrees_TableFormat_Shell(t *testing.T) {
 set -e
 cd %q
 export PATH="%s:$PATH"
-eval "$(%s --init bash)"
+eval "$(git wt --init bash)"
 git wt
-`, repoRoot, pathDir, binPath) //nostyle:funcfmt
+`, repoRoot, pathDir) //nostyle:funcfmt
 			},
 		},
 		{
@@ -220,9 +220,9 @@ git wt
 set -e
 cd %q
 export PATH="%s:$PATH"
-eval "$(%s --init zsh)"
+eval "$(git wt --init zsh)"
 git wt
-`, repoRoot, pathDir, binPath) //nostyle:funcfmt
+`, repoRoot, pathDir) //nostyle:funcfmt
 			},
 		},
 		{
@@ -232,9 +232,9 @@ git wt
 				return fmt.Sprintf(`
 cd %q
 set -x PATH %s $PATH
-%s --init fish | source
+git wt --init fish | source
 git wt
-`, repoRoot, pathDir, binPath) //nostyle:funcfmt
+`, repoRoot, pathDir) //nostyle:funcfmt
 			},
 		},
 	}
@@ -761,12 +761,12 @@ func TestE2E_ShellIntegration_Bash(t *testing.T) {
 set -e
 cd %q
 export PATH="%s:$PATH"
-eval "$(%s --init bash)"
+eval "$(git wt --init bash)"
 
 # Test: git wt <branch> should cd to the worktree
 git wt shell-bash-test
 pwd
-`, repo.Root, filepath.Dir(binPath), binPath) //nostyle:funcfmt
+`, repo.Root, filepath.Dir(binPath)) //nostyle:funcfmt
 
 	cmd := exec.Command("bash", "-c", script)
 	out, err := cmd.CombinedOutput()
@@ -799,12 +799,12 @@ func TestE2E_ShellIntegration_Zsh(t *testing.T) {
 set -e
 cd %q
 export PATH="%s:$PATH"
-eval "$(%s --init zsh)"
+eval "$(git wt --init zsh)"
 
 # Test: git wt <branch> should cd to the worktree
 git wt shell-zsh-test
 pwd
-`, repo.Root, filepath.Dir(binPath), binPath) //nostyle:funcfmt
+`, repo.Root, filepath.Dir(binPath)) //nostyle:funcfmt
 
 	cmd := exec.Command("zsh", "-c", script)
 	out, err := cmd.CombinedOutput()
@@ -835,12 +835,12 @@ func TestE2E_ShellIntegration_Fish(t *testing.T) {
 	script := fmt.Sprintf(`
 cd %q
 set -x PATH %s $PATH
-%s --init fish | source
+git wt --init fish | source
 
 # Test: git wt <branch> should cd to the worktree
 git wt shell-fish-test
 pwd
-`, repo.Root, filepath.Dir(binPath), binPath) //nostyle:funcfmt
+`, repo.Root, filepath.Dir(binPath)) //nostyle:funcfmt
 
 	cmd := exec.Command("fish", "-c", script)
 	out, err := cmd.CombinedOutput()
@@ -888,12 +888,12 @@ func TestE2E_ShellIntegration_PowerShell(t *testing.T) {
 $ErrorActionPreference = "Stop"
 Set-Location %q
 $env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
-Invoke-Expression (%s --init powershell | Out-String)
+Invoke-Expression (git wt --init powershell | Out-String)
 
 # Test: git wt <branch> should cd to the worktree
 git wt shell-pwsh-test
 Get-Location | Select-Object -ExpandProperty Path
-`, repo.Root, filepath.Dir(binPath), binPath) //nostyle:funcfmt
+`, repo.Root, filepath.Dir(binPath)) //nostyle:funcfmt
 
 	cmd := exec.Command(pwshPath, "-NoProfile", "-Command", script)
 	out, err := cmd.CombinedOutput()

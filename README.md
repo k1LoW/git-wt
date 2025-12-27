@@ -36,25 +36,25 @@ Add the following to your shell config to enable worktree switching and completi
 **zsh (~/.zshrc):**
 
 ``` zsh
-eval "$(git-wt --init zsh)"
+eval "$(git wt --init zsh)"
 ```
 
 **bash (~/.bashrc):** (experimental)
 
 ``` bash
-eval "$(git-wt --init bash)"
+eval "$(git wt --init bash)"
 ```
 
 **fish (~/.config/fish/config.fish):** (experimental)
 
 ``` fish
-git-wt --init fish | source
+git wt --init fish | source
 ```
 
 **powershell ($PROFILE):** (experimental)
 
 ``` powershell
-Invoke-Expression (git-wt --init powershell | Out-String)
+Invoke-Expression (git wt --init powershell | Out-String)
 ```
 
 > [!IMPORTANT]
@@ -63,7 +63,7 @@ Invoke-Expression (git-wt --init powershell | Out-String)
 If you want only completion without the `git()` wrapper (no automatic directory switching), use the `--no-switch-directory` option:
 
 ``` zsh
-eval "$(git-wt --init zsh --no-switch-directory)"
+eval "$(git wt --init zsh --no-switch-directory)"
 ```
 
 ## Configuration
