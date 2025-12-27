@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -74,12 +75,12 @@ const fishGitWrapper = `
 # Override git command to cd after 'git wt <branch>'
 function git --wraps git
     if test "$argv[1]" = "wt"
-        set -l result (command git wt $argv[2..])
+        set -l result (command git wt $argv[2..] | string collect)
         set -l exit_code $status
         if test $exit_code -eq 0 -a -d "$result"
             cd "$result"
         else
-            echo "$result"
+            printf "%s\n" "$result"
             return $exit_code
         end
     else
@@ -154,11 +155,17 @@ func runInit(shell string, ignoreSwitchDirectory bool) error {
 		fmt.Fprint(os.Stdout, zshCompletion)
 		return nil
 	case "fish":
-		fmt.Fprint(os.Stdout, "# git-wt shell hook for fish\n")
-		if !ignoreSwitchDirectory {
-			fmt.Fprint(os.Stdout, fishGitWrapper)
+		if _, err := io.WriteString(os.Stdout, "# git-wt shell hook for fish\n"); err != nil {
+			return err
 		}
-		fmt.Fprint(os.Stdout, fishCompletion)
+		if !ignoreSwitchDirectory {
+			if _, err := io.WriteString(os.Stdout, fishGitWrapper); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(os.Stdout, fishCompletion); err != nil {
+			return err
+		}
 		return nil
 	case "powershell":
 		fmt.Fprint(os.Stdout, "# git-wt shell hook for PowerShell\n")
