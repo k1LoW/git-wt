@@ -8,7 +8,7 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
-func TestGetCopyOptions(t *testing.T) {
+func TestCopyOpts(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -79,13 +79,13 @@ func TestGetCopyOptions(t *testing.T) {
 			tt.setup()
 			defer tt.cleanup()
 
-			got, err := GetCopyOptions(t.Context())
+			got, err := CopyOpts(t.Context())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
 			if got != tt.expected {
-				t.Errorf("GetCopyOptions() = %+v, want %+v", got, tt.expected)
+				t.Errorf("CopyOpts() = %+v, want %+v", got, tt.expected) //nostyle:errorstrings
 			}
 		})
 	}

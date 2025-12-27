@@ -143,7 +143,10 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 	var completions []string
 
 	// Get worktree base directory for relative path calculation
-	baseDir, _ := git.GetWorktreeBaseDir(ctx)
+	baseDir, err := git.WorktreeBaseDir(ctx)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
 
 	// Add branches and directory names from existing worktrees
 	worktrees, err := git.ListWorktrees(ctx)
@@ -190,36 +193,33 @@ func listWorktrees(ctx context.Context) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	currentPath, err := git.GetCurrentWorktree(ctx)
+	currentPath, err := git.CurrentWorktree(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current worktree: %w", err)
 	}
 
-	table := tablewriter.NewTable(os.Stdout,
-		tablewriter.WithHeader([]string{"", "PATH", "BRANCH", "HEAD"}),
-		tablewriter.WithRendition(tw.Rendition{
-			Borders: tw.Border{
-				Left:   tw.Off,
-				Right:  tw.Off,
-				Top:    tw.Off,
-				Bottom: tw.Off,
+	table := tablewriter.NewTable(os.Stdout, tablewriter.WithHeader([]string{"", "PATH", "BRANCH", "HEAD"}), tablewriter.WithRendition(tw.Rendition{
+		Borders: tw.Border{
+			Left:   tw.Off,
+			Right:  tw.Off,
+			Top:    tw.Off,
+			Bottom: tw.Off,
+		},
+		Settings: tw.Settings{
+			Separators: tw.Separators{
+				ShowHeader:     tw.Off,
+				ShowFooter:     tw.Off,
+				BetweenRows:    tw.Off,
+				BetweenColumns: tw.Off,
 			},
-			Settings: tw.Settings{
-				Separators: tw.Separators{
-					ShowHeader:     tw.Off,
-					ShowFooter:     tw.Off,
-					BetweenRows:    tw.Off,
-					BetweenColumns: tw.Off,
-				},
-				Lines: tw.Lines{
-					ShowTop:        tw.Off,
-					ShowBottom:     tw.Off,
-					ShowHeaderLine: tw.Off,
-					ShowFooterLine: tw.Off,
-				},
+			Lines: tw.Lines{
+				ShowTop:        tw.Off,
+				ShowBottom:     tw.Off,
+				ShowHeaderLine: tw.Off,
+				ShowFooterLine: tw.Off,
 			},
-		}),
-	)
+		},
+	}))
 
 	for _, wt := range worktrees {
 		marker := ""
@@ -245,7 +245,7 @@ func deleteWorktree(ctx context.Context, branch string, force bool) error {
 	}
 
 	if wt == nil {
-		return fmt.Errorf("no worktree found for branch or directory '%s'", branch)
+		return fmt.Errorf("no worktree found for branch or directory %q", branch)
 	}
 
 	// Remove worktree
@@ -263,9 +263,9 @@ func deleteWorktree(ctx context.Context, branch string, force bool) error {
 		if err := git.DeleteBranch(ctx, branch, force); err != nil {
 			return fmt.Errorf("failed to delete branch (use -D to force): %w", err)
 		}
-		fmt.Printf("Deleted worktree and branch '%s'\n", branch)
+		fmt.Printf("Deleted worktree and branch %q\n", branch)
 	} else {
-		fmt.Printf("Deleted worktree '%s' (branch did not exist locally)\n", branch)
+		fmt.Printf("Deleted worktree %q (branch did not exist locally)\n", branch)
 	}
 	return nil
 }
@@ -284,13 +284,13 @@ func handleWorktree(ctx context.Context, branch string) error {
 	}
 
 	// Get worktree path
-	wtPath, err := git.GetWorktreePath(ctx, branch)
+	wtPath, err := git.WorktreePath(ctx, branch)
 	if err != nil {
 		return fmt.Errorf("failed to get worktree path: %w", err)
 	}
 
 	// Get copy options
-	copyOpts, err := git.GetCopyOptions(ctx)
+	copyOpts, err := git.CopyOpts(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get copy options: %w", err)
 	}

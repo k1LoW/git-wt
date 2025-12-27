@@ -70,7 +70,7 @@ func TestListWorktrees_Multiple(t *testing.T) {
 	}
 }
 
-func TestGetCurrentWorktree(t *testing.T) {
+func TestCurrentWorktree(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -78,13 +78,13 @@ func TestGetCurrentWorktree(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	path, err := GetCurrentWorktree(t.Context())
+	path, err := CurrentWorktree(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if path != repo.Root {
-		t.Errorf("GetCurrentWorktree() = %q, want %q", path, repo.Root)
+		t.Errorf("CurrentWorktree() = %q, want %q", path, repo.Root) //nostyle:errorstrings
 	}
 }
 

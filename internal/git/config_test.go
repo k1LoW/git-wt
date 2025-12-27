@@ -8,7 +8,7 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
-func TestGetConfig(t *testing.T) {
+func TestConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -30,18 +30,18 @@ func TestGetConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetConfig(t.Context(), tt.key)
+			got, err := Config(t.Context(), tt.key)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("GetConfig(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
+				t.Fatalf("Config(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
 			}
 			if got != tt.want {
-				t.Errorf("GetConfig(%q) = %q, want %q", tt.key, got, tt.want)
+				t.Errorf("Config(%q) = %q, want %q", tt.key, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
 }
 
-func TestGetRepoRoot(t *testing.T) {
+func TestRepoRoot(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -53,13 +53,13 @@ func TestGetRepoRoot(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	root, err := GetRepoRoot(t.Context())
+	root, err := RepoRoot(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if root != repo.Root {
-		t.Errorf("GetRepoRoot() = %q, want %q", root, repo.Root)
+		t.Errorf("RepoRoot() = %q, want %q", root, repo.Root) //nostyle:errorstrings
 	}
 
 	// Test from subdirectory
@@ -68,17 +68,17 @@ func TestGetRepoRoot(t *testing.T) {
 		t.Fatalf("failed to chdir to subdir: %v", err)
 	}
 
-	root, err = GetRepoRoot(t.Context())
+	root, err = RepoRoot(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error from subdir: %v", err)
 	}
 
 	if root != repo.Root {
-		t.Errorf("GetRepoRoot() from subdir = %q, want %q", root, repo.Root)
+		t.Errorf("RepoRoot() from subdir = %q, want %q", root, repo.Root) //nostyle:errorstrings
 	}
 }
 
-func TestGetRepoName(t *testing.T) {
+func TestRepoName(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -86,18 +86,18 @@ func TestGetRepoName(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	name, err := GetRepoName(t.Context())
+	name, err := RepoName(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// The repo is created in a temp directory named "repo"
 	if name != "repo" {
-		t.Errorf("GetRepoName() = %q, want %q", name, "repo")
+		t.Errorf("RepoName() = %q, want %q", name, "repo") //nostyle:errorstrings
 	}
 }
 
-func TestGetBaseDir(t *testing.T) {
+func TestBaseDir(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -108,26 +108,26 @@ func TestGetBaseDir(t *testing.T) {
 	// Test with custom value (to avoid being affected by global config)
 	repo.Git("config", "wt.basedir", "../custom-worktrees")
 
-	got, err := GetBaseDir(t.Context())
+	got, err := BaseDir(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if got != "../custom-worktrees" {
-		t.Errorf("GetBaseDir() = %q, want %q", got, "../custom-worktrees")
+		t.Errorf("BaseDir() = %q, want %q", got, "../custom-worktrees") //nostyle:errorstrings
 	}
 
 	// Test default value by unsetting local config
 	// Note: This may still be affected by global config, so we set an explicit value instead
 	repo.Git("config", "wt.basedir", "../{gitroot}-wt")
 
-	got, err = GetBaseDir(t.Context())
+	got, err = BaseDir(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if got != "../{gitroot}-wt" {
-		t.Errorf("GetBaseDir() with default pattern = %q, want %q", got, "../{gitroot}-wt")
+		t.Errorf("BaseDir() with default pattern = %q, want %q", got, "../{gitroot}-wt") //nostyle:errorstrings
 	}
 }
 
@@ -178,13 +178,13 @@ func TestExpandPath(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("ExpandPath(%q) = %q, want %q", tt.path, got, tt.want)
+				t.Errorf("ExpandPath(%q) = %q, want %q", tt.path, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
 }
 
-func TestGetWorktreePath(t *testing.T) {
+func TestWorktreePath(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -196,7 +196,7 @@ func TestGetWorktreePath(t *testing.T) {
 	repo.Git("config", "wt.basedir", "../{gitroot}-wt")
 
 	// Test with default pattern basedir
-	path, err := GetWorktreePath(t.Context(), "feature-branch")
+	path, err := WorktreePath(t.Context(), "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,19 +204,19 @@ func TestGetWorktreePath(t *testing.T) {
 	// Expected: parent_dir/repo-wt/feature-branch
 	expectedDir := filepath.Clean(filepath.Join(repo.Root, "../repo-wt/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("GetWorktreePath(\"feature-branch\") = %q, want %q", path, expectedDir)
+		t.Errorf("WorktreePath(\"feature-branch\") = %q, want %q", path, expectedDir) //nostyle:errorstrings
 	}
 
 	// Test with custom basedir
 	repo.Git("config", "wt.basedir", "../{gitroot}-worktrees")
 
-	path, err = GetWorktreePath(t.Context(), "feature-branch")
+	path, err = WorktreePath(t.Context(), "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	expectedDir = filepath.Clean(filepath.Join(repo.Root, "../repo-worktrees/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("GetWorktreePath(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir)
+		t.Errorf("WorktreePath(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir) //nostyle:errorstrings
 	}
 }

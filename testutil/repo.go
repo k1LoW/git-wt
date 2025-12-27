@@ -16,7 +16,7 @@ type TestRepo struct {
 
 // NewTestRepo creates a new temporary git repository.
 // Cleanup is automatically registered via t.Cleanup().
-func NewTestRepo(t testing.TB) *TestRepo {
+func NewTestRepo(t testing.TB) *TestRepo { //nostyle:repetition
 	t.Helper()
 
 	// Create a parent temp directory to contain both the repo and potential worktrees

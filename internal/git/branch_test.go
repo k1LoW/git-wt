@@ -32,7 +32,7 @@ func TestBranchExists(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("BranchExists(%q) = %v, want %v", tt.branch, got, tt.want)
+				t.Errorf("BranchExists(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
@@ -64,7 +64,7 @@ func TestLocalBranchExists(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("LocalBranchExists(%q) = %v, want %v", tt.branch, got, tt.want)
+				t.Errorf("LocalBranchExists(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
@@ -219,13 +219,13 @@ func TestIsBranchMerged(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("IsBranchMerged(%q) = %v, want %v", tt.branch, got, tt.want)
+				t.Errorf("IsBranchMerged(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
 }
 
-func TestGetDefaultBranch(t *testing.T) {
+func TestDefaultBranch(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -234,12 +234,12 @@ func TestGetDefaultBranch(t *testing.T) {
 	defer restore()
 
 	// Without remote, should fallback to checking main/master
-	branch, err := GetDefaultBranch(t.Context())
+	branch, err := DefaultBranch(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if branch != "main" {
-		t.Errorf("GetDefaultBranch() = %q, want %q", branch, "main")
+		t.Errorf("DefaultBranch() = %q, want %q", branch, "main") //nostyle:errorstrings
 	}
 }

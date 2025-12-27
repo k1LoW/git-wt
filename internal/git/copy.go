@@ -21,23 +21,23 @@ type CopyOptions struct {
 	CopyModified  bool
 }
 
-// GetCopyOptions retrieves copy options from git config.
-func GetCopyOptions(ctx context.Context) (CopyOptions, error) {
+// CopyOpts retrieves copy options from git config.
+func CopyOpts(ctx context.Context) (CopyOptions, error) {
 	opts := CopyOptions{}
 
-	val, err := GetConfig(ctx, configKeyCopyIgnored)
+	val, err := Config(ctx, configKeyCopyIgnored)
 	if err != nil {
 		return opts, err
 	}
 	opts.CopyIgnored = val == "true"
 
-	val, err = GetConfig(ctx, configKeyCopyUntracked)
+	val, err = Config(ctx, configKeyCopyUntracked)
 	if err != nil {
 		return opts, err
 	}
 	opts.CopyUntracked = val == "true"
 
-	val, err = GetConfig(ctx, configKeyCopyModified)
+	val, err = Config(ctx, configKeyCopyModified)
 	if err != nil {
 		return opts, err
 	}

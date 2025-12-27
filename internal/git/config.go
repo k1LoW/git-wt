@@ -13,8 +13,8 @@ const (
 	configKeyBaseDir = "wt.basedir"
 )
 
-// GetConfig retrieves a git config value.
-func GetConfig(ctx context.Context, key string) (string, error) {
+// Config retrieves a git config value.
+func Config(ctx context.Context, key string) (string, error) {
 	cmd, err := gitCommand(ctx, "config", "--get", key)
 	if err != nil {
 		return "", err
@@ -31,8 +31,8 @@ func GetConfig(ctx context.Context, key string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetRepoRoot returns the root directory of the current git repository (or worktree).
-func GetRepoRoot(ctx context.Context) (string, error) {
+// RepoRoot returns the root directory of the current git repository (or worktree).
+func RepoRoot(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", err
@@ -44,9 +44,9 @@ func GetRepoRoot(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetMainRepoRoot returns the root directory of the main git repository.
-// Unlike GetRepoRoot, this returns the main repository root even when called from a worktree.
-func GetMainRepoRoot(ctx context.Context) (string, error) {
+// MainRepoRoot returns the root directory of the main git repository.
+// Unlike RepoRoot, this returns the main repository root even when called from a worktree.
+func MainRepoRoot(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--git-common-dir")
 	if err != nil {
 		return "", err
@@ -59,7 +59,7 @@ func GetMainRepoRoot(ctx context.Context) (string, error) {
 
 	// If git-common-dir is relative (e.g., ".git"), resolve it from current repo root
 	if !filepath.IsAbs(gitCommonDir) {
-		repoRoot, err := GetRepoRoot(ctx)
+		repoRoot, err := RepoRoot(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -70,21 +70,21 @@ func GetMainRepoRoot(ctx context.Context) (string, error) {
 	return filepath.Dir(gitCommonDir), nil
 }
 
-// GetRepoName returns the name of the current git repository (directory name).
-func GetRepoName(ctx context.Context) (string, error) {
-	root, err := GetRepoRoot(ctx)
+// RepoName returns the name of the current git repository (directory name).
+func RepoName(ctx context.Context) (string, error) {
+	root, err := RepoRoot(ctx)
 	if err != nil {
 		return "", err
 	}
 	return filepath.Base(root), nil
 }
 
-// GetBaseDir returns the base directory pattern for worktrees.
+// BaseDir returns the base directory pattern for worktrees.
 // It checks git config (local, then global) and falls back to default.
-// Note: This returns the raw pattern. Use GetWorktreePath to get the full path with branch expanded.
-func GetBaseDir(ctx context.Context) (string, error) {
+// Note: This returns the raw pattern. Use WorktreePath to get the full path with branch expanded.
+func BaseDir(ctx context.Context) (string, error) {
 	// Check git config
-	baseDir, err := GetConfig(ctx, configKeyBaseDir)
+	baseDir, err := Config(ctx, configKeyBaseDir)
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +103,7 @@ func GetBaseDir(ctx context.Context) (string, error) {
 func expandTemplate(ctx context.Context, s string) (string, error) {
 	// Expand {gitroot}
 	if strings.Contains(s, "{gitroot}") {
-		repoName, err := GetRepoName(ctx)
+		repoName, err := RepoName(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -133,16 +133,16 @@ func ExpandPath(ctx context.Context, path string) (string, error) {
 	}
 
 	// Resolve relative path from main repo root (not current worktree)
-	repoRoot, err := GetMainRepoRoot(ctx)
+	repoRoot, err := MainRepoRoot(ctx)
 	if err != nil {
 		return "", err
 	}
 	return filepath.Clean(filepath.Join(repoRoot, path)), nil
 }
 
-// GetWorktreeBaseDir returns the expanded base directory for worktrees.
-func GetWorktreeBaseDir(ctx context.Context) (string, error) {
-	baseDir, err := GetBaseDir(ctx)
+// WorktreeBaseDir returns the expanded base directory for worktrees.
+func WorktreeBaseDir(ctx context.Context) (string, error) {
+	baseDir, err := BaseDir(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -162,9 +162,9 @@ func GetWorktreeBaseDir(ctx context.Context) (string, error) {
 	return baseDir, nil
 }
 
-// GetWorktreePath returns the full path for a worktree given a branch name.
-func GetWorktreePath(ctx context.Context, branch string) (string, error) {
-	baseDir, err := GetWorktreeBaseDir(ctx)
+// WorktreePath returns the full path for a worktree given a branch name.
+func WorktreePath(ctx context.Context, branch string) (string, error) {
+	baseDir, err := WorktreeBaseDir(ctx)
 	if err != nil {
 		return "", err
 	}

@@ -36,9 +36,9 @@ func runGitWt(t *testing.T, binPath, dir string, args ...string) (string, error)
 	return strings.TrimSpace(string(out)), err
 }
 
-// getWorktreePath extracts the worktree path from git-wt output.
+// worktreePath extracts the worktree path from git-wt output.
 // The path is the last line of output (after git messages).
-func getWorktreePath(output string) string {
+func worktreePath(output string) string {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	if len(lines) == 0 {
 		return ""
@@ -87,7 +87,7 @@ func TestE2E_CreateWorktree(t *testing.T) {
 	}
 
 	// Extract the actual path (last line of output)
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Verify the directory was created
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
@@ -107,7 +107,7 @@ func TestE2E_SwitchWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out1)
 	}
-	wtPath := getWorktreePath(out1)
+	wtPath := worktreePath(out1)
 
 	// Running again should return the same path (switch behavior)
 	out2, err := runGitWt(t, binPath, repo.Root, "feature")
@@ -133,7 +133,7 @@ func TestE2E_DeleteWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Verify it exists
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
@@ -164,7 +164,7 @@ func TestE2E_ForceDeleteWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Make a commit in the worktree (will be unmerged)
 	if err := os.WriteFile(filepath.Join(wtPath, "new.txt"), []byte("content"), 0600); err != nil {
@@ -275,14 +275,14 @@ func TestE2E_WorktreeFromWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create first worktree: %v", err)
 	}
-	wt1Path := getWorktreePath(out1)
+	wt1Path := worktreePath(out1)
 
 	// Create second worktree from within first worktree
 	out2, err := runGitWt(t, binPath, wt1Path, "feature2")
 	if err != nil {
 		t.Fatalf("failed to create second worktree from worktree: %v\noutput: %s", err, out2)
 	}
-	wt2Path := getWorktreePath(out2)
+	wt2Path := worktreePath(out2)
 
 	// Verify second worktree was created
 	if _, err := os.Stat(wt2Path); os.IsNotExist(err) {
@@ -309,7 +309,7 @@ func TestE2E_CopyIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Verify .env was copied
 	envPath := filepath.Join(wtPath, ".env")
@@ -339,7 +339,7 @@ func TestE2E_CustomBaseDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
 	}
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Verify worktree was created in custom location
 	expectedPath := filepath.Join(customBase, "custom-branch")
@@ -403,7 +403,7 @@ func TestE2E_ExistingBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create worktree for existing branch: %v\noutput: %s", err, out)
 	}
-	wtPath := getWorktreePath(out)
+	wtPath := worktreePath(out)
 
 	// Verify worktree was created
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {

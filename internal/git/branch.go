@@ -111,8 +111,8 @@ func ListBranches(ctx context.Context) ([]string, error) {
 	return branches, nil
 }
 
-// GetDefaultBranch returns the default branch name (e.g., main, master).
-func GetDefaultBranch(ctx context.Context) (string, error) {
+// DefaultBranch returns the default branch name (e.g., main, master).
+func DefaultBranch(ctx context.Context) (string, error) {
 	// Try to get from remote origin
 	cmd, err := gitCommand(ctx, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
 	if err != nil {

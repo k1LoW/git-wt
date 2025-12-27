@@ -72,8 +72,8 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 	return worktrees, nil
 }
 
-// GetCurrentWorktree returns the path of the current worktree.
-func GetCurrentWorktree(ctx context.Context) (string, error) {
+// CurrentWorktree returns the path of the current worktree.
+func CurrentWorktree(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", err
@@ -116,7 +116,7 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 	}
 
 	// Get worktree base directory for relative path comparison
-	baseDir, err := GetWorktreeBaseDir(ctx)
+	baseDir, err := WorktreeBaseDir(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 // AddWorktree creates a new worktree for the given branch.
 func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
 	// Get source root before creating worktree
-	srcRoot, err := GetRepoRoot(ctx)
+	srcRoot, err := RepoRoot(ctx)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.
 func AddWorktreeWithNewBranch(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
 	// Get source root before creating worktree
-	srcRoot, err := GetRepoRoot(ctx)
+	srcRoot, err := RepoRoot(ctx)
 	if err != nil {
 		return err
 	}
