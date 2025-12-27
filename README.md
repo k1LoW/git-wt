@@ -1,4 +1,4 @@
-# git-wt
+# git-wt ![Coverage](https://raw.githubusercontent.com/k1LoW/octocovs/main/badges/k1LoW/git-wt/coverage.svg) ![Code to Test Ratio](https://raw.githubusercontent.com/k1LoW/octocovs/main/badges/k1LoW/git-wt/ratio.svg) ![Test Execution Time](https://raw.githubusercontent.com/k1LoW/octocovs/main/badges/k1LoW/git-wt/time.svg)
 
 A Git subcommand that makes `git worktree` simple.
 
