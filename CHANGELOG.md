@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.3.1](https://github.com/k1LoW/git-wt/compare/v0.3.0...v0.3.1) - 2025-12-27
+
 ## [v0.3.0](https://github.com/k1LoW/git-wt/compare/v0.2.3...v0.3.0) - 2025-12-27
 ### Breaking Changes 🛠
 - fix: set gostyle by @k1LoW in https://github.com/k1LoW/git-wt/pull/16
