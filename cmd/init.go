@@ -155,11 +155,17 @@ func runInit(shell string, ignoreSwitchDirectory bool) error {
 		fmt.Fprint(os.Stdout, zshCompletion)
 		return nil
 	case "fish":
-		io.WriteString(os.Stdout, "# git-wt shell hook for fish\n")
-		if !ignoreSwitchDirectory {
-			io.WriteString(os.Stdout, fishGitWrapper)
+		if _, err := io.WriteString(os.Stdout, "# git-wt shell hook for fish\n"); err != nil {
+			return err
 		}
-		io.WriteString(os.Stdout, fishCompletion)
+		if !ignoreSwitchDirectory {
+			if _, err := io.WriteString(os.Stdout, fishGitWrapper); err != nil {
+				return err
+			}
+		}
+		if _, err := io.WriteString(os.Stdout, fishCompletion); err != nil {
+			return err
+		}
 		return nil
 	case "powershell":
 		fmt.Fprint(os.Stdout, "# git-wt shell hook for PowerShell\n")
