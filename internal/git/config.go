@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/k1LoW/exec"
 )
 
 const (

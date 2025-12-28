@@ -101,10 +101,10 @@ func TestFindWorktreeByBranch(t *testing.T) {
 	defer restore()
 
 	tests := []struct {
-		name      string
-		branch    string
-		wantNil   bool
-		wantPath  string
+		name     string
+		branch   string
+		wantNil  bool
+		wantPath string
 	}{
 		{"existing main branch", "main", false, repo.Root},
 		{"existing feature branch", "feature", false, wtPath},

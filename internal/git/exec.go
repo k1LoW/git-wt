@@ -2,7 +2,8 @@ package git
 
 import (
 	"context"
-	"os/exec"
+
+	"github.com/k1LoW/exec"
 )
 
 // gitCommand creates an exec.Cmd for git with the given context and arguments.

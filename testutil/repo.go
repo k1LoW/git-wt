@@ -2,10 +2,11 @@ package testutil
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k1LoW/exec"
 )
 
 // TestRepo represents a temporary git repository for testing.

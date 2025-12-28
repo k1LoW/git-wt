@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/k1LoW/exec"
 
 	"github.com/k1LoW/git-wt/testutil"
 )
