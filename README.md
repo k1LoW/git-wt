@@ -68,14 +68,16 @@ eval "$(git wt --init zsh --no-switch-directory)"
 
 ## Configuration
 
-Configuration is done via `git config`.
+Configuration is done via `git config`. All config options can be overridden with flags for a single invocation.
 
-#### `wt.basedir`
+#### `wt.basedir` / `--basedir`
 
 Worktree base directory.
 
 ``` console
 $ git config wt.basedir "../{gitroot}-worktrees"
+# or override for a single invocation
+$ git wt --basedir="/tmp/worktrees" feature-branch
 ```
 
 Supported template variables:
@@ -83,32 +85,41 @@ Supported template variables:
 
 Default: `../{gitroot}-wt`
 
-#### `wt.copyignored`
+#### `wt.copyignored` / `--copyignored`
 
 Copy files ignored by `.gitignore` (e.g., `.env`) to new worktrees.
 
 ``` console
 $ git config wt.copyignored true
+# or override for a single invocation
+$ git wt --copyignored feature-branch
+$ git wt --copyignored=false feature-branch  # explicitly disable
 ```
 
 Default: `false`
 
-#### `wt.copyuntracked`
+#### `wt.copyuntracked` / `--copyuntracked`
 
 Copy untracked files (not yet added to git) to new worktrees.
 
 ``` console
 $ git config wt.copyuntracked true
+# or override for a single invocation
+$ git wt --copyuntracked feature-branch
+$ git wt --copyuntracked=false feature-branch  # explicitly disable
 ```
 
 Default: `false`
 
-#### `wt.copymodified`
+#### `wt.copymodified` / `--copymodified`
 
 Copy modified files (tracked but with uncommitted changes) to new worktrees.
 
 ``` console
 $ git config wt.copymodified true
+# or override for a single invocation
+$ git wt --copymodified feature-branch
+$ git wt --copymodified=false feature-branch  # explicitly disable
 ```
 
 Default: `false`

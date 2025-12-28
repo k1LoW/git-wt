@@ -857,6 +857,224 @@ pwd
 	}
 }
 
+// TestE2E_BasedirFlag tests the --basedir flag overrides wt.basedir config.
+func TestE2E_BasedirFlag(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Set config basedir to one location
+	configBase := filepath.Join(repo.ParentDir(), "config-wt-dir")
+	repo.Git("config", "wt.basedir", configBase)
+
+	// Use flag to override to different location
+	flagBase := filepath.Join(repo.ParentDir(), "flag-wt-dir")
+
+	// Create worktree with --basedir flag
+	out, err := runGitWt(t, binPath, repo.Root, "--basedir", flagBase, "flag-branch")
+	if err != nil {
+		t.Fatalf("failed to create worktree with --basedir flag: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify worktree was created in flag location, not config location
+	expectedPath := filepath.Join(flagBase, "flag-branch")
+	if wtPath != expectedPath {
+		t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+	}
+
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Errorf("worktree was not created at flag path %s", wtPath)
+	}
+
+	// Verify it was NOT created in config location
+	configPath := filepath.Join(configBase, "flag-branch")
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		t.Errorf("worktree should not have been created at config path %s", configPath)
+	}
+}
+
+// TestE2E_CopyignoredFlag tests the --copyignored flag overrides wt.copyignored config.
+func TestE2E_CopyignoredFlag(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", ".env\n")
+	repo.Commit("initial commit")
+
+	// Create ignored file
+	repo.CreateFile(".env", "SECRET=flagtest")
+
+	// Config is NOT set (default false)
+	// Use --copyignored flag
+
+	out, err := runGitWt(t, binPath, repo.Root, "--copyignored", "copyignored-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with --copyignored flag: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify .env was copied
+	envPath := filepath.Join(wtPath, ".env")
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf(".env was not copied to worktree despite --copyignored flag: %v", err)
+	}
+
+	if string(content) != "SECRET=flagtest" {
+		t.Errorf(".env content = %q, want %q", string(content), "SECRET=flagtest")
+	}
+}
+
+// TestE2E_CopyuntrackedFlag tests the --copyuntracked flag.
+func TestE2E_CopyuntrackedFlag(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create untracked file
+	repo.CreateFile("untracked.txt", "untracked-flag-content")
+
+	// Use --copyuntracked flag
+	out, err := runGitWt(t, binPath, repo.Root, "--copyuntracked", "copyuntracked-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with --copyuntracked flag: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify untracked file was copied
+	untrackedPath := filepath.Join(wtPath, "untracked.txt")
+	content, err := os.ReadFile(untrackedPath)
+	if err != nil {
+		t.Fatalf("untracked.txt was not copied to worktree despite --copyuntracked flag: %v", err)
+	}
+
+	if string(content) != "untracked-flag-content" {
+		t.Errorf("untracked.txt content = %q, want %q", string(content), "untracked-flag-content")
+	}
+}
+
+// TestE2E_CopymodifiedFlag tests the --copymodified flag.
+func TestE2E_CopymodifiedFlag(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile("tracked.txt", "original-content")
+	repo.Commit("initial commit")
+
+	// Modify tracked file
+	repo.CreateFile("tracked.txt", "modified-flag-content")
+
+	// Use --copymodified flag
+	out, err := runGitWt(t, binPath, repo.Root, "--copymodified", "copymodified-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with --copymodified flag: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify modified file was copied with modifications
+	trackedPath := filepath.Join(wtPath, "tracked.txt")
+	content, err := os.ReadFile(trackedPath)
+	if err != nil {
+		t.Fatalf("tracked.txt was not copied to worktree: %v", err)
+	}
+
+	if string(content) != "modified-flag-content" {
+		t.Errorf("tracked.txt content = %q, want %q", string(content), "modified-flag-content")
+	}
+}
+
+// TestE2E_MultipleCopyFlags tests combining multiple copy flags.
+func TestE2E_MultipleCopyFlags(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", ".env\n")
+	repo.CreateFile("tracked.txt", "original")
+	repo.Commit("initial commit")
+
+	// Create various files
+	repo.CreateFile(".env", "SECRET=multi")
+	repo.CreateFile("untracked.txt", "untracked-multi")
+	repo.CreateFile("tracked.txt", "modified-multi")
+
+	// Use multiple flags
+	out, err := runGitWt(t, binPath, repo.Root, "--copyignored", "--copyuntracked", "--copymodified", "multi-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with multiple flags: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify all files were copied
+	tests := []struct {
+		file    string
+		content string
+	}{
+		{".env", "SECRET=multi"},
+		{"untracked.txt", "untracked-multi"},
+		{"tracked.txt", "modified-multi"},
+	}
+
+	for _, tt := range tests {
+		path := filepath.Join(wtPath, tt.file)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("%s was not copied to worktree: %v", tt.file, err)
+			continue
+		}
+		if string(content) != tt.content {
+			t.Errorf("%s content = %q, want %q", tt.file, string(content), tt.content)
+		}
+	}
+}
+
+// TestE2E_FlagOverridesConfig tests that flags override config values.
+func TestE2E_FlagOverridesConfig(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", ".env\n")
+	repo.Commit("initial commit")
+
+	// Set copyignored to false in config
+	repo.Git("config", "wt.copyignored", "false")
+
+	// Create ignored file
+	repo.CreateFile(".env", "SECRET=override")
+
+	// Without flag, .env should NOT be copied
+	out1, err := runGitWt(t, binPath, repo.Root, "no-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out1)
+	}
+	wtPath1 := worktreePath(out1)
+
+	envPath1 := filepath.Join(wtPath1, ".env")
+	if _, err := os.Stat(envPath1); !os.IsNotExist(err) {
+		t.Error(".env should NOT have been copied without --copyignored flag")
+	}
+
+	// With flag, .env SHOULD be copied
+	out2, err := runGitWt(t, binPath, repo.Root, "--copyignored", "with-flag-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with flag: %v\noutput: %s", err, out2)
+	}
+	wtPath2 := worktreePath(out2)
+
+	envPath2 := filepath.Join(wtPath2, ".env")
+	if _, err := os.Stat(envPath2); os.IsNotExist(err) {
+		t.Error(".env SHOULD have been copied with --copyignored flag")
+	}
+}
+
 // TestE2E_ShellIntegration_PowerShell tests the actual shell integration with PowerShell.
 func TestE2E_ShellIntegration_PowerShell(t *testing.T) {
 	// PowerShell init script uses git.exe which is Windows-specific

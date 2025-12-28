@@ -8,7 +8,7 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
-func TestConfig(t *testing.T) {
+func TestGitConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -30,12 +30,12 @@ func TestConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Config(t.Context(), tt.key)
+			got, err := GitConfig(t.Context(), tt.key)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Config(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
+				t.Fatalf("GitConfig(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
 			}
 			if got != tt.want {
-				t.Errorf("Config(%q) = %q, want %q", tt.key, got, tt.want) //nostyle:errorstrings
+				t.Errorf("GitConfig(%q) = %q, want %q", tt.key, got, tt.want) //nostyle:errorstrings
 			}
 		})
 	}
@@ -97,7 +97,7 @@ func TestRepoName(t *testing.T) {
 	}
 }
 
-func TestBaseDir(t *testing.T) {
+func TestLoadConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -105,29 +105,52 @@ func TestBaseDir(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	// Test with custom value (to avoid being affected by global config)
+	// Test with custom values
 	repo.Git("config", "wt.basedir", "../custom-worktrees")
+	repo.Git("config", "wt.copyignored", "true")
+	repo.Git("config", "wt.copyuntracked", "false")
+	repo.Git("config", "wt.copymodified", "true")
 
-	got, err := BaseDir(t.Context())
+	cfg, err := LoadConfig(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "../custom-worktrees" {
-		t.Errorf("BaseDir() = %q, want %q", got, "../custom-worktrees") //nostyle:errorstrings
+	if cfg.BaseDir != "../custom-worktrees" {
+		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../custom-worktrees") //nostyle:errorstrings
+	}
+	if !cfg.CopyIgnored {
+		t.Errorf("LoadConfig().CopyIgnored = %v, want true", cfg.CopyIgnored) //nostyle:errorstrings
+	}
+	if cfg.CopyUntracked {
+		t.Errorf("LoadConfig().CopyUntracked = %v, want false", cfg.CopyUntracked) //nostyle:errorstrings
+	}
+	if !cfg.CopyModified {
+		t.Errorf("LoadConfig().CopyModified = %v, want true", cfg.CopyModified) //nostyle:errorstrings
 	}
 
-	// Test default value by unsetting local config
-	// Note: This may still be affected by global config, so we set an explicit value instead
+	// Test with explicit default pattern
 	repo.Git("config", "wt.basedir", "../{gitroot}-wt")
+	repo.Git("config", "--unset", "wt.copyignored")
+	repo.Git("config", "--unset", "wt.copyuntracked")
+	repo.Git("config", "--unset", "wt.copymodified")
 
-	got, err = BaseDir(t.Context())
+	cfg, err = LoadConfig(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got != "../{gitroot}-wt" {
-		t.Errorf("BaseDir() with default pattern = %q, want %q", got, "../{gitroot}-wt") //nostyle:errorstrings
+	if cfg.BaseDir != "../{gitroot}-wt" {
+		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../{gitroot}-wt") //nostyle:errorstrings
+	}
+	if cfg.CopyIgnored {
+		t.Errorf("LoadConfig().CopyIgnored default = %v, want false", cfg.CopyIgnored) //nostyle:errorstrings
+	}
+	if cfg.CopyUntracked {
+		t.Errorf("LoadConfig().CopyUntracked default = %v, want false", cfg.CopyUntracked) //nostyle:errorstrings
+	}
+	if cfg.CopyModified {
+		t.Errorf("LoadConfig().CopyModified default = %v, want false", cfg.CopyModified) //nostyle:errorstrings
 	}
 }
 
@@ -184,7 +207,7 @@ func TestExpandPath(t *testing.T) {
 	}
 }
 
-func TestWorktreePath(t *testing.T) {
+func TestWorktreePathFor(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -192,11 +215,8 @@ func TestWorktreePath(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	// Set explicit basedir to avoid being affected by global config
-	repo.Git("config", "wt.basedir", "../{gitroot}-wt")
-
 	// Test with default pattern basedir
-	path, err := WorktreePath(t.Context(), "feature-branch")
+	path, err := WorktreePathFor(t.Context(), "../{gitroot}-wt", "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,19 +224,65 @@ func TestWorktreePath(t *testing.T) {
 	// Expected: parent_dir/repo-wt/feature-branch
 	expectedDir := filepath.Clean(filepath.Join(repo.Root, "../repo-wt/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("WorktreePath(\"feature-branch\") = %q, want %q", path, expectedDir) //nostyle:errorstrings
+		t.Errorf("WorktreePathFor(\"feature-branch\") = %q, want %q", path, expectedDir) //nostyle:errorstrings
 	}
 
 	// Test with custom basedir
-	repo.Git("config", "wt.basedir", "../{gitroot}-worktrees")
-
-	path, err = WorktreePath(t.Context(), "feature-branch")
+	path, err = WorktreePathFor(t.Context(), "../{gitroot}-worktrees", "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	expectedDir = filepath.Clean(filepath.Join(repo.Root, "../repo-worktrees/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("WorktreePath(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir) //nostyle:errorstrings
+		t.Errorf("WorktreePathFor(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir) //nostyle:errorstrings
+	}
+}
+
+func TestExpandBaseDir(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get home dir: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		baseDir string
+		want    string
+	}{
+		{
+			name:    "relative path with gitroot",
+			baseDir: "../{gitroot}-wt",
+			want:    filepath.Clean(filepath.Join(repo.Root, "../repo-wt")),
+		},
+		{
+			name:    "absolute path",
+			baseDir: "/tmp/worktrees",
+			want:    "/tmp/worktrees",
+		},
+		{
+			name:    "tilde expansion",
+			baseDir: "~/worktrees",
+			want:    filepath.Join(homeDir, "worktrees"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ExpandBaseDir(t.Context(), tt.baseDir)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ExpandBaseDir(%q) = %q, want %q", tt.baseDir, got, tt.want) //nostyle:errorstrings
+			}
+		})
 	}
 }

@@ -10,11 +10,22 @@ import (
 )
 
 const (
-	configKeyBaseDir = "wt.basedir"
+	configKeyBaseDir       = "wt.basedir"
+	configKeyCopyIgnored   = "wt.copyignored"
+	configKeyCopyUntracked = "wt.copyuntracked"
+	configKeyCopyModified  = "wt.copymodified"
 )
 
-// Config retrieves a git config value.
-func Config(ctx context.Context, key string) (string, error) {
+// Config holds all wt configuration values.
+type Config struct {
+	BaseDir       string
+	CopyIgnored   bool
+	CopyUntracked bool
+	CopyModified  bool
+}
+
+// GitConfig retrieves a git config value.
+func GitConfig(ctx context.Context, key string) (string, error) { //nolint:revive //nostyle:repetition
 	cmd, err := gitCommand(ctx, "config", "--get", key)
 	if err != nil {
 		return "", err
@@ -79,22 +90,42 @@ func RepoName(ctx context.Context) (string, error) {
 	return filepath.Base(root), nil
 }
 
-// BaseDir returns the base directory pattern for worktrees.
-// It checks git config (local, then global) and falls back to default.
-// Note: This returns the raw pattern. Use WorktreePath to get the full path with branch expanded.
-func BaseDir(ctx context.Context) (string, error) {
-	// Check git config
-	baseDir, err := Config(ctx, configKeyBaseDir)
-	if err != nil {
-		return "", err
-	}
+// LoadConfig loads configuration from git config with default values.
+func LoadConfig(ctx context.Context) (Config, error) {
+	cfg := Config{}
 
-	// If not set, use default
+	// BaseDir
+	baseDir, err := GitConfig(ctx, configKeyBaseDir)
+	if err != nil {
+		return cfg, err
+	}
 	if baseDir == "" {
 		baseDir = "../{gitroot}-wt"
 	}
+	cfg.BaseDir = baseDir
 
-	return baseDir, nil
+	// CopyIgnored
+	val, err := GitConfig(ctx, configKeyCopyIgnored)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.CopyIgnored = val == "true"
+
+	// CopyUntracked
+	val, err = GitConfig(ctx, configKeyCopyUntracked)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.CopyUntracked = val == "true"
+
+	// CopyModified
+	val, err = GitConfig(ctx, configKeyCopyModified)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.CopyModified = val == "true"
+
+	return cfg, nil
 }
 
 // expandTemplate expands template variables in a string.
@@ -140,34 +171,29 @@ func ExpandPath(ctx context.Context, path string) (string, error) {
 	return filepath.Clean(filepath.Join(repoRoot, path)), nil
 }
 
-// WorktreeBaseDir returns the expanded base directory for worktrees.
-func WorktreeBaseDir(ctx context.Context) (string, error) {
-	baseDir, err := BaseDir(ctx)
-	if err != nil {
-		return "", err
-	}
-
+// ExpandBaseDir expands template variables and path for the given base directory pattern.
+func ExpandBaseDir(ctx context.Context, baseDir string) (string, error) {
 	// Expand template variables
-	baseDir, err = expandTemplate(ctx, baseDir)
+	expanded, err := expandTemplate(ctx, baseDir)
 	if err != nil {
 		return "", err
 	}
 
 	// Expand path (~ and relative paths)
-	baseDir, err = ExpandPath(ctx, baseDir)
+	expanded, err = ExpandPath(ctx, expanded)
 	if err != nil {
 		return "", err
 	}
 
-	return baseDir, nil
+	return expanded, nil
 }
 
-// WorktreePath returns the full path for a worktree given a branch name.
-func WorktreePath(ctx context.Context, branch string) (string, error) {
-	baseDir, err := WorktreeBaseDir(ctx)
+// WorktreePathFor returns the full path for a worktree given a base directory pattern and branch name.
+func WorktreePathFor(ctx context.Context, baseDir, branch string) (string, error) {
+	expandedBaseDir, err := ExpandBaseDir(ctx, baseDir)
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(baseDir, branch), nil
+	return filepath.Join(expandedBaseDir, branch), nil
 }

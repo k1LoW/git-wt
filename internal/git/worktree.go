@@ -116,7 +116,11 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 	}
 
 	// Get worktree base directory for relative path comparison
-	baseDir, err := WorktreeBaseDir(ctx)
+	cfg, err := LoadConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	baseDir, err := ExpandBaseDir(ctx, cfg.BaseDir)
 	if err != nil {
 		return nil, err
 	}

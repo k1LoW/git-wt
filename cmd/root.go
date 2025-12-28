@@ -36,10 +36,15 @@ import (
 )
 
 var (
-	deleteFlag          bool
-	forceDeleteFlag     bool
-	initShell           string
-	noSwitchDirectory   bool
+	deleteFlag        bool
+	forceDeleteFlag   bool
+	initShell         string
+	noSwitchDirectory bool
+	// Config override flags.
+	basedirFlag       string
+	copyignoredFlag   bool
+	copyuntrackedFlag bool
+	copymodifiedFlag  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -69,23 +74,24 @@ Shell Integration:
   Invoke-Expression (git-wt --init powershell | Out-String)
 
 Configuration:
-  Configuration is done via git config.
+  Configuration is done via git config. All config options can be overridden
+  with flags for a single invocation.
 
-  wt.basedir
+  wt.basedir (--basedir)
     Worktree base directory.
     Supported template variables: {gitroot} (repository root directory name)
     Default: ../{gitroot}-wt
     Example: git config wt.basedir "../{gitroot}-worktrees"
 
-  wt.copyignored
+  wt.copyignored (--copyignored)
     Copy .gitignore'd files (e.g., .env) to new worktrees.
     Default: false
 
-  wt.copyuntracked
+  wt.copyuntracked (--copyuntracked)
     Copy untracked files to new worktrees.
     Default: false
 
-  wt.copymodified
+  wt.copymodified (--copymodified)
     Copy modified files to new worktrees.
     Default: false`,
 	RunE:              runRoot,
@@ -106,6 +112,11 @@ func init() {
 	rootCmd.Flags().BoolVarP(&forceDeleteFlag, "force-delete", "D", false, "Force delete worktree and branch")
 	rootCmd.Flags().StringVar(&initShell, "init", "", "Output shell initialization script (bash, zsh, fish, powershell)")
 	rootCmd.Flags().BoolVar(&noSwitchDirectory, "no-switch-directory", false, "Do not add git() wrapper for automatic directory switching (use with --init)")
+	// Config override flags.
+	rootCmd.Flags().StringVar(&basedirFlag, "basedir", "", "Override wt.basedir config (worktree base directory)")
+	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")
+	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
+	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -132,7 +143,31 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Default: create or switch to worktree
-	return handleWorktree(ctx, branch)
+	return handleWorktree(ctx, cmd, branch)
+}
+
+// loadConfig loads config from git config and applies flag overrides.
+func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
+	cfg, err := git.LoadConfig(ctx)
+	if err != nil {
+		return cfg, err
+	}
+
+	// Apply flag overrides
+	if cmd.Flags().Changed("basedir") {
+		cfg.BaseDir = basedirFlag
+	}
+	if cmd.Flags().Changed("copyignored") {
+		cfg.CopyIgnored = copyignoredFlag
+	}
+	if cmd.Flags().Changed("copyuntracked") {
+		cfg.CopyUntracked = copyuntrackedFlag
+	}
+	if cmd.Flags().Changed("copymodified") {
+		cfg.CopyModified = copymodifiedFlag
+	}
+
+	return cfg, nil
 }
 
 func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -143,7 +178,11 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 	var completions []string
 
 	// Get worktree base directory for relative path calculation
-	baseDir, err := git.WorktreeBaseDir(ctx)
+	cfg, err := loadConfig(ctx, cmd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	baseDir, err := git.ExpandBaseDir(ctx, cfg.BaseDir)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
@@ -270,7 +309,13 @@ func deleteWorktree(ctx context.Context, branch string, force bool) error {
 	return nil
 }
 
-func handleWorktree(ctx context.Context, branch string) error {
+func handleWorktree(ctx context.Context, cmd *cobra.Command, branch string) error {
+	// Load config with flag overrides
+	cfg, err := loadConfig(ctx, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	// Check if worktree already exists for this branch or directory name
 	wt, err := git.FindWorktreeByBranchOrDir(ctx, branch)
 	if err != nil {
@@ -284,15 +329,16 @@ func handleWorktree(ctx context.Context, branch string) error {
 	}
 
 	// Get worktree path
-	wtPath, err := git.WorktreePath(ctx, branch)
+	wtPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, branch)
 	if err != nil {
 		return fmt.Errorf("failed to get worktree path: %w", err)
 	}
 
-	// Get copy options
-	copyOpts, err := git.CopyOpts(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get copy options: %w", err)
+	// Build copy options from config
+	copyOpts := git.CopyOptions{
+		CopyIgnored:   cfg.CopyIgnored,
+		CopyUntracked: cfg.CopyUntracked,
+		CopyModified:  cfg.CopyModified,
 	}
 
 	// Check if branch exists

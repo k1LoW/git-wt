@@ -8,42 +8,11 @@ import (
 	"strings"
 )
 
-const (
-	configKeyCopyIgnored   = "wt.copyignored"
-	configKeyCopyUntracked = "wt.copyuntracked"
-	configKeyCopyModified  = "wt.copymodified"
-)
-
 // CopyOptions holds the copy configuration.
 type CopyOptions struct {
 	CopyIgnored   bool
 	CopyUntracked bool
 	CopyModified  bool
-}
-
-// CopyOpts retrieves copy options from git config.
-func CopyOpts(ctx context.Context) (CopyOptions, error) {
-	opts := CopyOptions{}
-
-	val, err := Config(ctx, configKeyCopyIgnored)
-	if err != nil {
-		return opts, err
-	}
-	opts.CopyIgnored = val == "true"
-
-	val, err = Config(ctx, configKeyCopyUntracked)
-	if err != nil {
-		return opts, err
-	}
-	opts.CopyUntracked = val == "true"
-
-	val, err = Config(ctx, configKeyCopyModified)
-	if err != nil {
-		return opts, err
-	}
-	opts.CopyModified = val == "true"
-
-	return opts, nil
 }
 
 // CopyFilesToWorktree copies files to the new worktree based on options.
