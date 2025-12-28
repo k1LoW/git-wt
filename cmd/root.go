@@ -45,6 +45,7 @@ var (
 	copyignoredFlag   bool
 	copyuntrackedFlag bool
 	copymodifiedFlag  bool
+	nocopyFlag        []string
 )
 
 var rootCmd = &cobra.Command{
@@ -93,7 +94,13 @@ Configuration:
 
   wt.copymodified (--copymodified)
     Copy modified files to new worktrees.
-    Default: false`,
+    Default: false
+
+  wt.nocopy (--nocopy)
+    Patterns for files to exclude from copying (gitignore syntax).
+    Can be specified multiple times.
+    Example: git config --add wt.nocopy "*.log"
+             git config --add wt.nocopy "vendor/"`,
 	RunE:              runRoot,
 	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeBranches,
@@ -117,6 +124,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")
 	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
+	rootCmd.Flags().StringArrayVar(&nocopyFlag, "nocopy", nil, "Exclude files matching pattern from copying (can be specified multiple times)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -165,6 +173,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("copymodified") {
 		cfg.CopyModified = copymodifiedFlag
+	}
+	if cmd.Flags().Changed("nocopy") {
+		cfg.NoCopy = nocopyFlag
 	}
 
 	return cfg, nil
@@ -339,6 +350,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch string) erro
 		CopyIgnored:   cfg.CopyIgnored,
 		CopyUntracked: cfg.CopyUntracked,
 		CopyModified:  cfg.CopyModified,
+		NoCopy:        cfg.NoCopy,
 	}
 
 	// Check if branch exists

@@ -200,3 +200,106 @@ func TestCopyFilesToWorktree_Subdirectory(t *testing.T) {
 		t.Errorf("config/local.yml content = %q, want %q", string(content), "local: true")
 	}
 }
+
+func TestCopyFilesToWorktree_NoCopy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", ".env\n*.log\nvendor/\nconfig/local.yml\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files
+	repo.CreateFile(".env", "SECRET=value")
+	repo.CreateFile("app.log", "log content")
+	repo.CreateFile("vendor/github.com/foo/bar.go", "package foo")
+	repo.CreateFile("config/local.yml", "local: true")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Copy ignored files but exclude *.log and vendor/ (gitignore pattern)
+	opts := CopyOptions{
+		CopyIgnored: true,
+		NoCopy:      []string{"*.log", "vendor/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// .env should be copied
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); os.IsNotExist(err) {
+		t.Error(".env should have been copied")
+	}
+
+	// config/local.yml should be copied (not in NoCopy)
+	if _, err := os.Stat(filepath.Join(dstDir, "config/local.yml")); os.IsNotExist(err) {
+		t.Error("config/local.yml should have been copied")
+	}
+
+	// app.log should NOT be copied (matches *.log)
+	if _, err := os.Stat(filepath.Join(dstDir, "app.log")); !os.IsNotExist(err) {
+		t.Error("app.log should NOT have been copied")
+	}
+
+	// vendor/github.com/foo/bar.go should NOT be copied (matches vendor/)
+	if _, err := os.Stat(filepath.Join(dstDir, "vendor/github.com/foo/bar.go")); !os.IsNotExist(err) {
+		t.Error("vendor/github.com/foo/bar.go should NOT have been copied")
+	}
+}
+
+func TestCopyFilesToWorktree_NoCopy_GitignorePatterns(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "*.secret\nbuild/\ntemp/\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files with various patterns
+	repo.CreateFile("api.secret", "api key")
+	repo.CreateFile("db.secret", "db password")
+	repo.CreateFile("build/output.js", "compiled")
+	repo.CreateFile("build/nested/file.js", "nested compiled")
+	repo.CreateFile("temp/cache.txt", "cache")
+	repo.CreateFile("src/temp/data.txt", "not excluded")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Exclude only build/ directory using gitignore pattern
+	opts := CopyOptions{
+		CopyIgnored: true,
+		NoCopy:      []string{"build/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// *.secret files should be copied (not in NoCopy)
+	for _, file := range []string{"api.secret", "db.secret"} {
+		if _, err := os.Stat(filepath.Join(dstDir, file)); os.IsNotExist(err) {
+			t.Errorf("%s should have been copied", file)
+		}
+	}
+
+	// temp/ files should be copied (not in NoCopy)
+	if _, err := os.Stat(filepath.Join(dstDir, "temp/cache.txt")); os.IsNotExist(err) {
+		t.Error("temp/cache.txt should have been copied")
+	}
+
+	// build/ files should NOT be copied
+	for _, file := range []string{"build/output.js", "build/nested/file.js"} {
+		if _, err := os.Stat(filepath.Join(dstDir, file)); !os.IsNotExist(err) {
+			t.Errorf("%s should NOT have been copied", file)
+		}
+	}
+}

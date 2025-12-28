@@ -473,6 +473,9 @@ func TestE2E_WorktreeFromWorktree(t *testing.T) {
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
 
+	// Set local basedir to avoid global config influence
+	repo.Git("config", "wt.basedir", "../{gitroot}-wt")
+
 	// Create first worktree
 	out1, err := runGitWt(t, binPath, repo.Root, "feature1")
 	if err != nil {

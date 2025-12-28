@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
 // CopyOptions holds the copy configuration.
@@ -13,6 +15,7 @@ type CopyOptions struct {
 	CopyIgnored   bool
 	CopyUntracked bool
 	CopyModified  bool
+	NoCopy        []string
 }
 
 // CopyFilesToWorktree copies files to the new worktree based on options.
@@ -43,6 +46,17 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 		files = append(files, modified...)
 	}
 
+	// Build NoCopy matcher using gitignore patterns
+	var noCopyMatcher gitignore.Matcher
+	if len(opts.NoCopy) > 0 {
+		var patterns []gitignore.Pattern
+		for _, p := range opts.NoCopy {
+			// Parse pattern from git root (empty domain means root)
+			patterns = append(patterns, gitignore.ParsePattern(p, nil))
+		}
+		noCopyMatcher = gitignore.NewMatcher(patterns)
+	}
+
 	// Remove duplicates
 	seen := make(map[string]struct{})
 	for _, file := range files {
@@ -50,6 +64,16 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 			continue
 		}
 		seen[file] = struct{}{}
+
+		// Skip files matching NoCopy patterns
+		if noCopyMatcher != nil {
+			// Split file path into components for gitignore matching
+			pathComponents := strings.Split(file, string(filepath.Separator))
+			isDir := false // files from git ls-files are always files
+			if noCopyMatcher.Match(pathComponents, isDir) {
+				continue
+			}
+		}
 
 		src := filepath.Join(srcRoot, file)
 		dst := filepath.Join(dstRoot, file)

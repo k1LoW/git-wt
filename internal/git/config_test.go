@@ -13,6 +13,8 @@ func TestGitConfig(t *testing.T) {
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
 	repo.Git("config", "test.key", "test-value")
+	repo.Git("config", "--add", "test.multi", "value1")
+	repo.Git("config", "--add", "test.multi", "value2")
 
 	restore := repo.Chdir()
 	defer restore()
@@ -20,12 +22,12 @@ func TestGitConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		key     string
-		want    string
+		want    []string
 		wantErr bool
 	}{
-		{"existing key", "test.key", "test-value", false},
-		{"non-existing key", "test.nonexistent", "", false},
-		{"user.email", "user.email", "test@example.com", false},
+		{"existing key", "test.key", []string{"test-value"}, false},
+		{"non-existing key", "test.nonexistent", nil, false},
+		{"multiple values", "test.multi", []string{"value1", "value2"}, false},
 	}
 
 	for _, tt := range tests {
@@ -34,8 +36,14 @@ func TestGitConfig(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("GitConfig(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
 			}
-			if got != tt.want {
-				t.Errorf("GitConfig(%q) = %q, want %q", tt.key, got, tt.want) //nostyle:errorstrings
+			if len(got) != len(tt.want) {
+				t.Errorf("GitConfig(%q) = %v, want %v", tt.key, got, tt.want) //nostyle:errorstrings
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("GitConfig(%q)[%d] = %q, want %q", tt.key, i, got[i], tt.want[i]) //nostyle:errorstrings
+				}
 			}
 		})
 	}

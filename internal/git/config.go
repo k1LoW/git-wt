@@ -14,6 +14,7 @@ const (
 	configKeyCopyIgnored   = "wt.copyignored"
 	configKeyCopyUntracked = "wt.copyuntracked"
 	configKeyCopyModified  = "wt.copymodified"
+	configKeyNoCopy        = "wt.nocopy"
 )
 
 // Config holds all wt configuration values.
@@ -22,24 +23,29 @@ type Config struct {
 	CopyIgnored   bool
 	CopyUntracked bool
 	CopyModified  bool
+	NoCopy        []string
 }
 
-// GitConfig retrieves a git config value.
-func GitConfig(ctx context.Context, key string) (string, error) { //nolint:revive //nostyle:repetition
-	cmd, err := gitCommand(ctx, "config", "--get", key)
+// GitConfig retrieves all git config values for a key.
+func GitConfig(ctx context.Context, key string) ([]string, error) { //nolint:revive //nostyle:repetition
+	cmd, err := gitCommand(ctx, "config", "--get-all", key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	out, err := cmd.Output()
 	if err != nil {
 		// git config returns exit code 1 if key is not found
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			return "", nil
+			return nil, nil
 		}
-		return "", err
+		return nil, err
 	}
-	return strings.TrimSpace(string(out)), nil
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return nil, nil
+	}
+	return strings.Split(trimmed, "\n"), nil
 }
 
 // RepoRoot returns the root directory of the current git repository (or worktree).
@@ -99,31 +105,39 @@ func LoadConfig(ctx context.Context) (Config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	if baseDir == "" {
-		baseDir = "../{gitroot}-wt"
+	if len(baseDir) == 0 {
+		cfg.BaseDir = "../{gitroot}-wt"
+	} else {
+		cfg.BaseDir = baseDir[len(baseDir)-1]
 	}
-	cfg.BaseDir = baseDir
 
 	// CopyIgnored
 	val, err := GitConfig(ctx, configKeyCopyIgnored)
 	if err != nil {
 		return cfg, err
 	}
-	cfg.CopyIgnored = val == "true"
+	cfg.CopyIgnored = len(val) > 0 && val[len(val)-1] == "true"
 
 	// CopyUntracked
 	val, err = GitConfig(ctx, configKeyCopyUntracked)
 	if err != nil {
 		return cfg, err
 	}
-	cfg.CopyUntracked = val == "true"
+	cfg.CopyUntracked = len(val) > 0 && val[len(val)-1] == "true"
 
 	// CopyModified
 	val, err = GitConfig(ctx, configKeyCopyModified)
 	if err != nil {
 		return cfg, err
 	}
-	cfg.CopyModified = val == "true"
+	cfg.CopyModified = len(val) > 0 && val[len(val)-1] == "true"
+
+	// NoCopy
+	noCopy, err := GitConfig(ctx, configKeyNoCopy)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.NoCopy = noCopy
 
 	return cfg, nil
 }

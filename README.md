@@ -123,3 +123,20 @@ $ git wt --copymodified=false feature-branch  # explicitly disable
 ```
 
 Default: `false`
+
+#### `wt.nocopy` / `--nocopy`
+
+Exclude files matching patterns from copying. Uses `.gitignore` syntax.
+
+``` console
+$ git config --add wt.nocopy "*.log"
+$ git config --add wt.nocopy "vendor/"
+# or override for a single invocation (multiple patterns supported)
+$ git wt --copyignored --nocopy "*.log" --nocopy "vendor/" feature-branch
+```
+
+Supported patterns (same as `.gitignore`):
+- `*.log`: wildcard matching
+- `vendor/`: directory matching
+- `**/temp`: match in any directory
+- `/config.local`: relative to git root
