@@ -52,6 +52,8 @@ func NewTestRepo(t testing.TB) *TestRepo { //nostyle:repetition
 	r.Git("init")
 	r.Git("config", "user.email", "test@example.com")
 	r.Git("config", "user.name", "Test User")
+	// Disable GPG signing for tests
+	r.Git("config", "commit.gpgsign", "false")
 	// Set default branch name to main
 	r.Git("checkout", "-b", "main")
 
