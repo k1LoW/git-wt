@@ -118,7 +118,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch (safe delete, only if merged)")
 	rootCmd.Flags().BoolVarP(&forceDeleteFlag, "force-delete", "D", false, "Force delete worktree and branch")
 	rootCmd.Flags().StringVar(&initShell, "init", "", "Output shell initialization script (bash, zsh, fish, powershell)")
-	rootCmd.Flags().BoolVar(&noSwitchDirectory, "no-switch-directory", false, "Do not add git() wrapper for automatic directory switching (use with --init)")
+	rootCmd.Flags().BoolVar(&noSwitchDirectory, "no-switch-directory", false, "Do not switch directory after creating/switching worktree (also disables git() wrapper when used with --init)")
 	// Config override flags.
 	rootCmd.Flags().StringVar(&basedirFlag, "basedir", "", "Override wt.basedir config (worktree base directory)")
 	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")

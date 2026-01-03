@@ -12,11 +12,23 @@ const bashGitWrapper = `
 git() {
     if [[ "$1" == "wt" ]]; then
         shift
+        local no_switch=false
+        local args=()
+        for arg in "$@"; do
+            if [[ "$arg" == "--no-switch-directory" ]]; then
+                no_switch=true
+            fi
+            args+=("$arg")
+        done
         local result
-        result=$(command git wt "$@")
+        result=$(command git wt "${args[@]}")
         local exit_code=$?
         if [[ $exit_code -eq 0 && -d "$result" ]]; then
-            cd "$result"
+            if [[ "$no_switch" == "true" ]]; then
+                echo "$result"
+            else
+                cd "$result"
+            fi
         else
             echo "$result"
             return $exit_code
@@ -45,11 +57,23 @@ const zshGitWrapper = `
 git() {
     if [[ "$1" == "wt" ]]; then
         shift
+        local no_switch=false
+        local args=()
+        for arg in "$@"; do
+            if [[ "$arg" == "--no-switch-directory" ]]; then
+                no_switch=true
+            fi
+            args+=("$arg")
+        done
         local result
-        result=$(command git wt "$@")
+        result=$(command git wt "${args[@]}")
         local exit_code=$?
         if [[ $exit_code -eq 0 && -d "$result" ]]; then
-            cd "$result"
+            if [[ "$no_switch" == "true" ]]; then
+                echo "$result"
+            else
+                cd "$result"
+            fi
         else
             echo "$result"
             return $exit_code
@@ -75,10 +99,21 @@ const fishGitWrapper = `
 # Override git command to cd after 'git wt <branch>'
 function git --wraps git
     if test "$argv[1]" = "wt"
+        set -l no_switch false
+        for arg in $argv[2..]
+            if test "$arg" = "--no-switch-directory"
+                set no_switch true
+                break
+            end
+        end
         set -l result (command git wt $argv[2..] | string collect)
         set -l exit_code $status
         if test $exit_code -eq 0 -a -d "$result"
-            cd "$result"
+            if test "$no_switch" = "true"
+                printf "%s\n" "$result"
+            else
+                cd "$result"
+            end
         else
             printf "%s\n" "$result"
             return $exit_code
@@ -109,9 +144,14 @@ const powershellGitWrapper = `
 function Invoke-Git {
     if ($args[0] -eq "wt") {
         $wtArgs = $args[1..($args.Length-1)]
+        $noSwitch = $wtArgs -contains "--no-switch-directory"
         $result = & git.exe wt @wtArgs 2>&1
         if ($LASTEXITCODE -eq 0 -and (Test-Path $result -PathType Container)) {
-            Set-Location $result
+            if ($noSwitch) {
+                Write-Output $result
+            } else {
+                Set-Location $result
+            }
         } else {
             Write-Output $result
             return $LASTEXITCODE

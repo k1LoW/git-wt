@@ -66,6 +66,13 @@ If you want only completion without the `git()` wrapper (no automatic directory 
 eval "$(git wt --init zsh --no-switch-directory)"
 ```
 
+You can also use `--no-switch-directory` with `git wt <branch>` to create/switch to a worktree without changing the current directory:
+
+``` console
+$ git wt --no-switch-directory feature-branch
+/path/to/worktree/feature-branch  # prints path but stays in current directory
+```
+
 ## Configuration
 
 Configuration is done via `git config`. All config options can be overridden with flags for a single invocation.

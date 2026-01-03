@@ -1090,6 +1090,97 @@ func TestE2E_FlagOverridesConfig(t *testing.T) {
 	}
 }
 
+// TestE2E_ShellIntegration_NoSwitchDirectory tests that --no-switch-directory flag
+// prevents cd when used with git wt <branch> via shell integration.
+func TestE2E_ShellIntegration_NoSwitchDirectory(t *testing.T) {
+	binPath := buildBinary(t)
+
+	tests := []struct {
+		name       string
+		shell      string
+		scriptFunc func(repoRoot, pathDir string) string
+	}{
+		{
+			name:  "bash",
+			shell: "bash",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init bash)"
+
+# Test: git wt --no-switch-directory <branch> should NOT cd to the worktree
+git wt --no-switch-directory no-switch-bash-test
+pwd
+`, repoRoot, pathDir) //nostyle:funcfmt
+			},
+		},
+		{
+			name:  "zsh",
+			shell: "zsh",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init zsh)"
+
+# Test: git wt --no-switch-directory <branch> should NOT cd to the worktree
+git wt --no-switch-directory no-switch-zsh-test
+pwd
+`, repoRoot, pathDir) //nostyle:funcfmt
+			},
+		},
+		{
+			name:  "fish",
+			shell: "fish",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+cd %q
+set -x PATH %s $PATH
+git wt --init fish | source
+
+# Test: git wt --no-switch-directory <branch> should NOT cd to the worktree
+git wt --no-switch-directory no-switch-fish-test
+pwd
+`, repoRoot, pathDir) //nostyle:funcfmt
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := exec.LookPath(tt.shell); err != nil {
+				t.Skipf("%s not available", tt.shell)
+			}
+
+			repo := testutil.NewTestRepo(t)
+			repo.CreateFile("README.md", "# Test")
+			repo.Commit("initial commit")
+
+			script := tt.scriptFunc(repo.Root, filepath.Dir(binPath))
+			cmd := exec.Command(tt.shell, "-c", script) //#nosec G204
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("%s shell integration with --no-switch-directory failed: %v\noutput: %s", tt.shell, err, out)
+			}
+
+			output := strings.TrimSpace(string(out))
+			lines := strings.Split(output, "\n")
+			pwd := lines[len(lines)-1]
+
+			// pwd should be the original repo root, NOT the new worktree
+			if strings.Contains(pwd, "no-switch-"+tt.name+"-test") {
+				t.Errorf("pwd should NOT contain worktree path when --no-switch-directory is used, got: %s", pwd)
+			}
+			if pwd != repo.Root {
+				t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
+			}
+		})
+	}
+}
+
 // TestE2E_ShellIntegration_PowerShell tests the actual shell integration with PowerShell.
 func TestE2E_ShellIntegration_PowerShell(t *testing.T) {
 	// PowerShell init script uses git.exe which is Windows-specific
