@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.5.2](https://github.com/k1LoW/git-wt/compare/v0.5.1...v0.5.2) - 2026-01-03
+### New Features 🎉
+- feat: allow `--no-switch-directory` with `git wt <branch>` by @k1LoW in https://github.com/k1LoW/git-wt/pull/27
+### Other Changes
+- chore(deps): bump the dependencies group with 4 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/25
+- chore: disable gpg signing for tests by @k1LoW in https://github.com/k1LoW/git-wt/pull/28
+
 ## [v0.5.1](https://github.com/k1LoW/git-wt/compare/v0.5.0...v0.5.1) - 2025-12-28
 ### Other Changes
 - refactor: use k1LoW/exec instead by @k1LoW in https://github.com/k1LoW/git-wt/pull/24
