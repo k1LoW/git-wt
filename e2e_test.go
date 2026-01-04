@@ -1181,6 +1181,201 @@ pwd
 	}
 }
 
+// TestE2E_HookFlag tests the --hook flag runs commands after creating a new worktree.
+func TestE2E_HookFlag(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create worktree with --hook flag that creates a marker file
+	out, err := runGitWt(t, binPath, repo.Root, "--hook", "touch hook-marker.txt", "hook-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree with --hook flag: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify the hook created the marker file
+	markerPath := filepath.Join(wtPath, "hook-marker.txt")
+	if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+		t.Error("hook-marker.txt was not created by hook")
+	}
+}
+
+// TestE2E_HookConfig tests the wt.hooks config runs commands after creating a new worktree.
+func TestE2E_HookConfig(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Set hook in config
+	repo.Git("config", "--add", "wt.hooks", "touch config-hook-marker.txt")
+
+	// Create worktree
+	out, err := runGitWt(t, binPath, repo.Root, "hook-config-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify the hook created the marker file
+	markerPath := filepath.Join(wtPath, "config-hook-marker.txt")
+	if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+		t.Error("config-hook-marker.txt was not created by hook from config")
+	}
+}
+
+// TestE2E_MultipleHooks tests that multiple hooks run in order.
+func TestE2E_MultipleHooks(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create worktree with multiple hooks
+	out, err := runGitWt(t, binPath, repo.Root, "--hook", "echo first > order.txt", "--hook", "echo second >> order.txt", "multi-hook-test") //nostyle:funcfmt
+	if err != nil {
+		t.Fatalf("failed to create worktree with multiple hooks: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify both hooks ran in order
+	orderPath := filepath.Join(wtPath, "order.txt")
+	content, err := os.ReadFile(orderPath)
+	if err != nil {
+		t.Fatalf("order.txt was not created: %v", err)
+	}
+
+	expected := "first\nsecond\n"
+	if string(content) != expected {
+		t.Errorf("order.txt content = %q, want %q", string(content), expected)
+	}
+}
+
+// TestE2E_HookNotRunOnExistingWorktree tests that hooks do NOT run when switching to existing worktree.
+func TestE2E_HookNotRunOnExistingWorktree(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create worktree first (without hook)
+	out, err := runGitWt(t, binPath, repo.Root, "existing-hook-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Switch to existing worktree with hook - hook should NOT run
+	out2, err := runGitWt(t, binPath, repo.Root, "--hook", "touch should-not-exist.txt", "existing-hook-test")
+	if err != nil {
+		t.Fatalf("failed to switch to worktree: %v\noutput: %s", err, out2)
+	}
+
+	// Verify the hook did NOT create the file
+	markerPath := filepath.Join(wtPath, "should-not-exist.txt")
+	if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
+		t.Error("hook should NOT have run when switching to existing worktree")
+	}
+}
+
+// TestE2E_HookFlagOverridesConfig tests that --hook flag overrides wt.hooks config.
+func TestE2E_HookFlagOverridesConfig(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Set hook in config
+	repo.Git("config", "--add", "wt.hooks", "touch config-marker.txt")
+
+	// Create worktree with --hook flag (should override config)
+	out, err := runGitWt(t, binPath, repo.Root, "--hook", "touch flag-marker.txt", "hook-override-test")
+	if err != nil {
+		t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+	}
+	wtPath := worktreePath(out)
+
+	// Verify flag hook ran
+	flagMarkerPath := filepath.Join(wtPath, "flag-marker.txt")
+	if _, err := os.Stat(flagMarkerPath); os.IsNotExist(err) {
+		t.Error("flag-marker.txt should have been created by --hook flag")
+	}
+
+	// Verify config hook did NOT run (flag overrides config)
+	configMarkerPath := filepath.Join(wtPath, "config-marker.txt")
+	if _, err := os.Stat(configMarkerPath); !os.IsNotExist(err) {
+		t.Error("config-marker.txt should NOT have been created (--hook flag overrides config)")
+	}
+}
+
+// TestE2E_HookFailureExitsWithError tests that hook failures cause exit code 1 and stop execution.
+func TestE2E_HookFailureExitsWithError(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create worktree with a failing hook followed by a successful hook
+	stdout, stderr, err := runGitWtStdout(t, binPath, repo.Root, "--hook", "exit 1", "--hook", "touch after-failure.txt", "hook-failure-test") //nostyle:funcfmt
+
+	// Command should fail with exit code 1
+	if err == nil {
+		t.Fatal("command should fail when hook fails")
+	}
+
+	wtPath := strings.TrimSpace(stdout)
+
+	// Verify stderr contains error about the failed hook
+	if !strings.Contains(stderr, "hook") || !strings.Contains(stderr, "failed") {
+		t.Errorf("stderr should contain error about failed hook, got: %s", stderr)
+	}
+
+	// Verify the second hook did NOT run (execution stops on first failure)
+	markerPath := filepath.Join(wtPath, "after-failure.txt")
+	if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
+		t.Error("second hook should NOT have run after first hook failed")
+	}
+
+	// Verify worktree was still created
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Error("worktree should have been created even though hook failed")
+	}
+}
+
+// TestE2E_HookOutputToStderr tests that hook output goes to stderr (not stdout).
+func TestE2E_HookOutputToStderr(t *testing.T) {
+	binPath := buildBinary(t)
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create worktree with a hook that outputs to stdout
+	stdout, stderr, err := runGitWtStdout(t, binPath, repo.Root, "--hook", "echo hook-output-test", "hook-output-test") //nostyle:funcfmt
+	if err != nil {
+		t.Fatalf("failed to create worktree: %v\nstderr: %s", err, stderr)
+	}
+
+	// stdout should only contain the worktree path (for shell integration)
+	lines := strings.Split(stdout, "\n")
+	if len(lines) != 1 {
+		t.Errorf("stdout should be exactly 1 line (worktree path), got %d lines: %q", len(lines), stdout)
+	}
+
+	// Hook output should be in stderr
+	if !strings.Contains(stderr, "hook-output-test") {
+		t.Errorf("hook output should be in stderr, got stderr: %s", stderr)
+	}
+}
+
 // TestE2E_ShellIntegration_PowerShell tests the actual shell integration with PowerShell.
 func TestE2E_ShellIntegration_PowerShell(t *testing.T) {
 	// PowerShell init script uses git.exe which is Windows-specific

@@ -46,6 +46,7 @@ var (
 	copyuntrackedFlag bool
 	copymodifiedFlag  bool
 	nocopyFlag        []string
+	hookFlag          []string
 )
 
 var rootCmd = &cobra.Command{
@@ -100,7 +101,14 @@ Configuration:
     Patterns for files to exclude from copying (gitignore syntax).
     Can be specified multiple times.
     Example: git config --add wt.nocopy "*.log"
-             git config --add wt.nocopy "vendor/"`,
+             git config --add wt.nocopy "vendor/"
+
+  wt.hooks (--hook)
+    Commands to run after creating a new worktree.
+    Can be specified multiple times. Hooks run in the new worktree directory.
+    Note: Hooks do NOT run when switching to an existing worktree.
+    Example: git config --add wt.hooks "npm install"
+             git config --add wt.hooks "go generate ./..."`,
 	RunE:              runRoot,
 	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeBranches,
@@ -125,6 +133,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
 	rootCmd.Flags().StringArrayVar(&nocopyFlag, "nocopy", nil, "Exclude files matching pattern from copying (can be specified multiple times)")
+	rootCmd.Flags().StringArrayVar(&hookFlag, "hook", nil, "Run command after creating new worktree (can be specified multiple times)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -176,6 +185,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("nocopy") {
 		cfg.NoCopy = nocopyFlag
+	}
+	if cmd.Flags().Changed("hook") {
+		cfg.Hooks = hookFlag
 	}
 
 	return cfg, nil
@@ -369,6 +381,13 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch string) erro
 		if err := git.AddWorktreeWithNewBranch(ctx, wtPath, branch, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree with new branch: %w", err)
 		}
+	}
+
+	// Run hooks after creating new worktree
+	if err := git.RunHooks(ctx, cfg.Hooks, wtPath, os.Stderr); err != nil {
+		// Print path but return error so shell integration won't cd
+		fmt.Println(wtPath)
+		return err
 	}
 
 	// Print path for shell integration
