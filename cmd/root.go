@@ -103,12 +103,12 @@ Configuration:
     Example: git config --add wt.nocopy "*.log"
              git config --add wt.nocopy "vendor/"
 
-  wt.hooks (--hook)
+  wt.hook (--hook)
     Commands to run after creating a new worktree.
     Can be specified multiple times. Hooks run in the new worktree directory.
     Note: Hooks do NOT run when switching to an existing worktree.
-    Example: git config --add wt.hooks "npm install"
-             git config --add wt.hooks "go generate ./..."`,
+    Example: git config --add wt.hook "npm install"
+             git config --add wt.hook "go generate ./..."`,
 	RunE:              runRoot,
 	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeBranches,

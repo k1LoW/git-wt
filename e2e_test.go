@@ -1203,7 +1203,7 @@ func TestE2E_HookFlag(t *testing.T) {
 	}
 }
 
-// TestE2E_HookConfig tests the wt.hooks config runs commands after creating a new worktree.
+// TestE2E_HookConfig tests the wt.hook config runs commands after creating a new worktree.
 func TestE2E_HookConfig(t *testing.T) {
 	binPath := buildBinary(t)
 
@@ -1212,7 +1212,7 @@ func TestE2E_HookConfig(t *testing.T) {
 	repo.Commit("initial commit")
 
 	// Set hook in config
-	repo.Git("config", "--add", "wt.hooks", "touch config-hook-marker.txt")
+	repo.Git("config", "--add", "wt.hook", "touch config-hook-marker.txt")
 
 	// Create worktree
 	out, err := runGitWt(t, binPath, repo.Root, "hook-config-test")
@@ -1284,7 +1284,7 @@ func TestE2E_HookNotRunOnExistingWorktree(t *testing.T) {
 	}
 }
 
-// TestE2E_HookFlagOverridesConfig tests that --hook flag overrides wt.hooks config.
+// TestE2E_HookFlagOverridesConfig tests that --hook flag overrides wt.hook config.
 func TestE2E_HookFlagOverridesConfig(t *testing.T) {
 	binPath := buildBinary(t)
 
@@ -1293,7 +1293,7 @@ func TestE2E_HookFlagOverridesConfig(t *testing.T) {
 	repo.Commit("initial commit")
 
 	// Set hook in config
-	repo.Git("config", "--add", "wt.hooks", "touch config-marker.txt")
+	repo.Git("config", "--add", "wt.hook", "touch config-marker.txt")
 
 	// Create worktree with --hook flag (should override config)
 	out, err := runGitWt(t, binPath, repo.Root, "--hook", "touch flag-marker.txt", "hook-override-test")

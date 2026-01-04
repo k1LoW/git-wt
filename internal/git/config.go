@@ -16,7 +16,7 @@ const (
 	configKeyCopyUntracked = "wt.copyuntracked"
 	configKeyCopyModified  = "wt.copymodified"
 	configKeyNoCopy        = "wt.nocopy"
-	configKeyHooks         = "wt.hooks"
+	configKeyHook         = "wt.hook"
 )
 
 // Config holds all wt configuration values.
@@ -143,7 +143,7 @@ func LoadConfig(ctx context.Context) (Config, error) {
 	cfg.NoCopy = noCopy
 
 	// Hooks
-	hooks, err := GitConfig(ctx, configKeyHooks)
+	hooks, err := GitConfig(ctx, configKeyHook)
 	if err != nil {
 		return cfg, err
 	}

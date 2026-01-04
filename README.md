@@ -148,13 +148,13 @@ Supported patterns (same as `.gitignore`):
 - `**/temp`: match in any directory
 - `/config.local`: relative to git root
 
-#### `wt.hooks` / `--hook`
+#### `wt.hook` / `--hook`
 
 Commands to run after creating a new worktree. Hooks run in the new worktree directory.
 
 ``` console
-$ git config --add wt.hooks "npm install"
-$ git config --add wt.hooks "go generate ./..."
+$ git config --add wt.hook "npm install"
+$ git config --add wt.hook "go generate ./..."
 # or override for a single invocation (multiple hooks supported)
 $ git wt --hook "npm install" feature-branch
 ```
