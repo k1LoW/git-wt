@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.6.0](https://github.com/k1LoW/git-wt/compare/v0.5.2...v0.6.0) - 2026-01-04
+### New Features 🎉
+- feat: add `wt.hooks` config and `--hook` flag to run commands after creating new worktree by @k1LoW in https://github.com/k1LoW/git-wt/pull/29
+- fix: rename config key `wt.hooks` to `wt.hook` by @k1LoW in https://github.com/k1LoW/git-wt/pull/32
+
 ## [v0.5.2](https://github.com/k1LoW/git-wt/compare/v0.5.1...v0.5.2) - 2026-01-03
 ### New Features 🎉
 - feat: allow `--no-switch-directory` with `git wt <branch>` by @k1LoW in https://github.com/k1LoW/git-wt/pull/27
