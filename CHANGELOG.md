@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.8.1](https://github.com/k1LoW/git-wt/compare/v0.8.0...v0.8.1) - 2026-01-05
+### Other Changes
+- fix: use `[worktree: branch=X]` format when worktree dir matches branch name by @k1LoW in https://github.com/k1LoW/git-wt/pull/41
+
 ## [v0.8.0](https://github.com/k1LoW/git-wt/compare/v0.7.0...v0.8.0) - 2026-01-05
 ### Breaking Changes 🛠
 - fix: rename `--no-switch-directory` flag to `--nocd` by @k1LoW in https://github.com/k1LoW/git-wt/pull/37
