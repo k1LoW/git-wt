@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.9.0](https://github.com/k1LoW/git-wt/compare/v0.8.2...v0.9.0) - 2026-01-05
+### New Features 🎉
+- feat: support creating and deleting multiple worktrees at once by @k1LoW in https://github.com/k1LoW/git-wt/pull/47
+
 ## [v0.8.2](https://github.com/k1LoW/git-wt/compare/v0.8.1...v0.8.2) - 2026-01-05
 ### Fix bug 🐛
 - fix: shell wrappers now respect `wt.nocd` config setting by @k1LoW in https://github.com/k1LoW/git-wt/pull/43
