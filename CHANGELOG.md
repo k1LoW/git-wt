@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.8.2](https://github.com/k1LoW/git-wt/compare/v0.8.1...v0.8.2) - 2026-01-05
+### Fix bug 🐛
+- fix: shell wrappers now respect `wt.nocd` config setting by @k1LoW in https://github.com/k1LoW/git-wt/pull/43
+### Other Changes
+- docs: add recipes for peco and tmux in README by @k1LoW in https://github.com/k1LoW/git-wt/pull/45
+
 ## [v0.8.1](https://github.com/k1LoW/git-wt/compare/v0.8.0...v0.8.1) - 2026-01-05
 ### Other Changes
 - fix: use `[worktree: branch=X]` format when worktree dir matches branch name by @k1LoW in https://github.com/k1LoW/git-wt/pull/41
