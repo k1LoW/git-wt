@@ -143,6 +143,23 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 	return nil, nil
 }
 
+// WorktreeDirName returns the directory name of a worktree (relative path from base dir).
+func WorktreeDirName(ctx context.Context, wt *Worktree) (string, error) {
+	cfg, err := LoadConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	baseDir, err := ExpandBaseDir(ctx, cfg.BaseDir)
+	if err != nil {
+		return "", err
+	}
+	relPath, err := filepath.Rel(baseDir, wt.Path)
+	if err != nil {
+		return "", err
+	}
+	return relPath, nil
+}
+
 // AddWorktree creates a new worktree for the given branch.
 func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
 	// Get source root before creating worktree
