@@ -46,6 +46,7 @@ var (
 	copyuntrackedFlag bool
 	copymodifiedFlag  bool
 	nocopyFlag        []string
+	copyFlag          []string
 	hookFlag          []string
 )
 
@@ -103,6 +104,13 @@ Configuration:
     Example: git config --add wt.nocopy "*.log"
              git config --add wt.nocopy "vendor/"
 
+  wt.copy (--copy)
+    Patterns for files to always copy, even if gitignored (gitignore syntax).
+    Can be specified multiple times. Useful for copying specific IDE files.
+    Note: If the same file matches both wt.copy and wt.nocopy, wt.nocopy takes precedence.
+    Example: git config --add wt.copy "*.code-workspace"
+             git config --add wt.copy ".vscode/"
+
   wt.hook (--hook)
     Commands to run after creating a new worktree.
     Can be specified multiple times. Hooks run in the new worktree directory.
@@ -143,6 +151,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
 	rootCmd.Flags().StringArrayVar(&nocopyFlag, "nocopy", nil, "Exclude files matching pattern from copying (can be specified multiple times)")
+	rootCmd.Flags().StringArrayVar(&copyFlag, "copy", nil, "Always copy files matching pattern (can be specified multiple times)")
 	rootCmd.Flags().StringArrayVar(&hookFlag, "hook", nil, "Run command after creating new worktree (can be specified multiple times)")
 }
 
@@ -196,6 +205,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("nocopy") {
 		cfg.NoCopy = nocopyFlag
+	}
+	if cmd.Flags().Changed("copy") {
+		cfg.Copy = copyFlag
 	}
 	if cmd.Flags().Changed("hook") {
 		cfg.Hooks = hookFlag
@@ -432,6 +444,7 @@ func handleWorktrees(ctx context.Context, cmd *cobra.Command, branches []string)
 		CopyUntracked: cfg.CopyUntracked,
 		CopyModified:  cfg.CopyModified,
 		NoCopy:        cfg.NoCopy,
+		Copy:          cfg.Copy,
 	}
 
 	for _, branch := range branches {

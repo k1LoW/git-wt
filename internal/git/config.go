@@ -16,6 +16,7 @@ const (
 	configKeyCopyUntracked = "wt.copyuntracked"
 	configKeyCopyModified  = "wt.copymodified"
 	configKeyNoCopy        = "wt.nocopy"
+	configKeyCopy          = "wt.copy"
 	configKeyHook          = "wt.hook"
 	configKeyNoCd          = "wt.nocd"
 )
@@ -27,6 +28,7 @@ type Config struct {
 	CopyUntracked bool
 	CopyModified  bool
 	NoCopy        []string
+	Copy          []string
 	Hooks         []string
 	NoCd          bool
 }
@@ -143,6 +145,13 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		return cfg, err
 	}
 	cfg.NoCopy = noCopy
+
+	// Copy
+	copyPatterns, err := GitConfig(ctx, configKeyCopy)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Copy = copyPatterns
 
 	// Hooks
 	hooks, err := GitConfig(ctx, configKeyHook)

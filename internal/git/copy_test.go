@@ -303,3 +303,183 @@ func TestCopyFilesToWorktree_NoCopy_GitignorePatterns(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyFilesToWorktree_Copy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "*.code-workspace\n.vscode/\n.env\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files
+	repo.CreateFile("project.code-workspace", `{"folders": []}`)
+	repo.CreateFile(".vscode/settings.json", `{"editor.tabSize": 2}`)
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Copy only specific ignored files using Copy patterns (CopyIgnored=false)
+	opts := CopyOptions{
+		CopyIgnored: false,
+		Copy:        []string{"*.code-workspace"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// project.code-workspace should be copied (matches Copy pattern)
+	if _, err := os.Stat(filepath.Join(dstDir, "project.code-workspace")); os.IsNotExist(err) {
+		t.Error("project.code-workspace should have been copied")
+	}
+
+	// .vscode/settings.json should NOT be copied (not in Copy patterns)
+	if _, err := os.Stat(filepath.Join(dstDir, ".vscode/settings.json")); !os.IsNotExist(err) {
+		t.Error(".vscode/settings.json should NOT have been copied")
+	}
+
+	// .env should NOT be copied (not in Copy patterns)
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env should NOT have been copied")
+	}
+}
+
+func TestCopyFilesToWorktree_Copy_WithNoCopy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "*.code-workspace\n.env\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files
+	repo.CreateFile("project.code-workspace", `{"folders": []}`)
+	repo.CreateFile("other.code-workspace", `{"folders": []}`)
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Copy *.code-workspace but exclude other.code-workspace via NoCopy
+	// NoCopy should take precedence over Copy
+	opts := CopyOptions{
+		CopyIgnored: false,
+		Copy:        []string{"*.code-workspace"},
+		NoCopy:      []string{"other.code-workspace"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// project.code-workspace should be copied
+	if _, err := os.Stat(filepath.Join(dstDir, "project.code-workspace")); os.IsNotExist(err) {
+		t.Error("project.code-workspace should have been copied")
+	}
+
+	// other.code-workspace should NOT be copied (NoCopy takes precedence)
+	if _, err := os.Stat(filepath.Join(dstDir, "other.code-workspace")); !os.IsNotExist(err) {
+		t.Error("other.code-workspace should NOT have been copied (NoCopy takes precedence)")
+	}
+
+	// .env should NOT be copied
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env should NOT have been copied")
+	}
+}
+
+func TestCopyFilesToWorktree_Copy_MultiplePatterns(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "*.code-workspace\n.vscode/\n.idea/\n.env\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files
+	repo.CreateFile("project.code-workspace", `{"folders": []}`)
+	repo.CreateFile(".vscode/settings.json", `{"editor.tabSize": 2}`)
+	repo.CreateFile(".idea/workspace.xml", "<project/>")
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Copy multiple patterns
+	opts := CopyOptions{
+		CopyIgnored: false,
+		Copy:        []string{"*.code-workspace", ".vscode/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// project.code-workspace should be copied
+	if _, err := os.Stat(filepath.Join(dstDir, "project.code-workspace")); os.IsNotExist(err) {
+		t.Error("project.code-workspace should have been copied")
+	}
+
+	// .vscode/settings.json should be copied
+	if _, err := os.Stat(filepath.Join(dstDir, ".vscode/settings.json")); os.IsNotExist(err) {
+		t.Error(".vscode/settings.json should have been copied")
+	}
+
+	// .idea/workspace.xml should NOT be copied (not in Copy patterns)
+	if _, err := os.Stat(filepath.Join(dstDir, ".idea/workspace.xml")); !os.IsNotExist(err) {
+		t.Error(".idea/workspace.xml should NOT have been copied")
+	}
+
+	// .env should NOT be copied
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env should NOT have been copied")
+	}
+}
+
+func TestCopyFilesToWorktree_Copy_WithCopyIgnored(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "*.code-workspace\n.env\n")
+	repo.Commit("initial commit")
+
+	// Create ignored files
+	repo.CreateFile("project.code-workspace", `{"folders": []}`)
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Both CopyIgnored and Copy are set
+	opts := CopyOptions{
+		CopyIgnored: true,
+		Copy:        []string{"*.code-workspace"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// Both files should be copied (CopyIgnored copies all, Copy adds workspace)
+	if _, err := os.Stat(filepath.Join(dstDir, "project.code-workspace")); os.IsNotExist(err) {
+		t.Error("project.code-workspace should have been copied")
+	}
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); os.IsNotExist(err) {
+		t.Error(".env should have been copied")
+	}
+}

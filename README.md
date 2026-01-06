@@ -148,6 +148,22 @@ Supported patterns (same as `.gitignore`):
 - `**/temp`: match in any directory
 - `/config.local`: relative to git root
 
+#### `wt.copy` / `--copy`
+
+Always copy files matching patterns, even if they are gitignored. Uses `.gitignore` syntax.
+
+``` console
+$ git config --add wt.copy "*.code-workspace"
+$ git config --add wt.copy ".vscode/"
+# or override for a single invocation (multiple patterns supported)
+$ git wt --copy "*.code-workspace" --copy ".vscode/" feature-branch
+```
+
+This is useful when you want to copy specific IDE files (like VS Code workspace files) without enabling `wt.copyignored` for all gitignored files.
+
+> [!NOTE]
+> If the same file matches both `wt.copy` and `wt.nocopy`, `wt.nocopy` takes precedence.
+
 #### `wt.hook` / `--hook`
 
 Commands to run after creating a new worktree. Hooks run in the new worktree directory.

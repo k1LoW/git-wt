@@ -16,6 +16,7 @@ type CopyOptions struct {
 	CopyUntracked bool
 	CopyModified  bool
 	NoCopy        []string
+	Copy          []string
 }
 
 // CopyFilesToWorktree copies files to the new worktree based on options.
@@ -44,6 +45,15 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 			return err
 		}
 		files = append(files, modified...)
+	}
+
+	// Add files matching Copy patterns (from ignored files)
+	if len(opts.Copy) > 0 {
+		copyFiles, err := listFilesMatchingCopyPatterns(ctx, srcRoot, opts.Copy)
+		if err != nil {
+			return err
+		}
+		files = append(files, copyFiles...)
 	}
 
 	// Build NoCopy matcher using gitignore patterns
@@ -143,6 +153,33 @@ func parseFileList(out string) []string {
 		files = append(files, line)
 	}
 	return files
+}
+
+// listFilesMatchingCopyPatterns returns ignored files that match the given patterns.
+func listFilesMatchingCopyPatterns(ctx context.Context, root string, patterns []string) ([]string, error) {
+	// Get ignored files
+	ignored, err := listIgnoredFiles(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build matcher from patterns
+	var matcherPatterns []gitignore.Pattern
+	for _, p := range patterns {
+		matcherPatterns = append(matcherPatterns, gitignore.ParsePattern(p, nil))
+	}
+	matcher := gitignore.NewMatcher(matcherPatterns)
+
+	// Filter files matching patterns
+	var result []string
+	for _, file := range ignored {
+		pathComponents := strings.Split(file, string(filepath.Separator))
+		if matcher.Match(pathComponents, false) {
+			result = append(result, file)
+		}
+	}
+
+	return result, nil
 }
 
 func copyFile(src, dst string) error {
