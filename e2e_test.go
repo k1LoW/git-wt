@@ -1986,6 +1986,9 @@ func TestE2E_DeleteCurrentWorktree(t *testing.T) {
 			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderrBuf.String())
 		}
 		stdout := strings.TrimSpace(stdoutBuf.String())
+		if stdout == "" {
+			t.Fatal("expected output but got none")
+		}
 
 		// stdout should contain the main repo path as the last line (for shell integration to cd)
 		lines := strings.Split(stdout, "\n")
@@ -2019,13 +2022,18 @@ func TestE2E_DeleteCurrentWorktree(t *testing.T) {
 			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderr)
 		}
 
+		trimmed := strings.TrimSpace(stdout)
+		if trimmed == "" {
+			t.Fatal("expected output but got none")
+		}
+
 		// stdout should NOT contain the main repo path (no shell integration)
-		lines := strings.Split(strings.TrimSpace(stdout), "\n")
+		lines := strings.Split(trimmed, "\n")
 		lastLine := lines[len(lines)-1]
 
 		// Last line should be the deletion message, not a directory path
-		if _, err := os.Stat(lastLine); err == nil {
-			t.Errorf("last line should NOT be a valid path without shell integration, got %q", lastLine)
+		if !strings.Contains(lastLine, "Deleted") {
+			t.Errorf("last line should be a deletion message containing %q, got %q", "Deleted", lastLine)
 		}
 
 		// Verify worktree was deleted
@@ -2056,13 +2064,18 @@ func TestE2E_DeleteCurrentWorktree(t *testing.T) {
 			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderr)
 		}
 
+		trimmed := strings.TrimSpace(stdout)
+		if trimmed == "" {
+			t.Fatal("expected output but got none")
+		}
+
 		// stdout should NOT contain a directory path (since we're not deleting current worktree)
-		lines := strings.Split(strings.TrimSpace(stdout), "\n")
+		lines := strings.Split(trimmed, "\n")
 		lastLine := lines[len(lines)-1]
 
 		// Last line should be the deletion message, not a path
-		if _, err := os.Stat(lastLine); err == nil {
-			t.Errorf("last line should NOT be a valid path when deleting other worktree, got %q", lastLine)
+		if !strings.Contains(lastLine, "Deleted") {
+			t.Errorf("last line should be a deletion message containing %q, got %q", "Deleted", lastLine)
 		}
 	})
 
@@ -2089,6 +2102,9 @@ func TestE2E_DeleteCurrentWorktree(t *testing.T) {
 			t.Fatalf("git-wt -d failed: %v\nstderr: %s", err, stderrBuf.String())
 		}
 		stdout := strings.TrimSpace(stdoutBuf.String())
+		if stdout == "" {
+			t.Fatal("expected output but got none")
+		}
 
 		// stdout should contain the main repo path as the last line
 		lines := strings.Split(stdout, "\n")
