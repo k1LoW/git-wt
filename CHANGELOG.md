@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.10.0](https://github.com/k1LoW/git-wt/compare/v0.9.1...v0.10.0) - 2026-01-06
+### Breaking Changes 🛠
+- feat: support start-point argument for worktree creation by @k1LoW in https://github.com/k1LoW/git-wt/pull/55
+### New Features 🎉
+- feat: add wt.copy to always copy specific gitignored files by @k1LoW in https://github.com/k1LoW/git-wt/pull/53
+- feat: allow deleting branches without associated worktrees by @k1LoW in https://github.com/k1LoW/git-wt/pull/54
+### Fix bug 🐛
+- fix: enable start-point completion by passing all args to __complete by @k1LoW in https://github.com/k1LoW/git-wt/pull/57
+
 ## [v0.9.1](https://github.com/k1LoW/git-wt/compare/v0.9.0...v0.9.1) - 2026-01-06
 ### Fix bug 🐛
 - fix: use string match instead of test in fish shell hook to avoid errors with short options by @k1LoW in https://github.com/k1LoW/git-wt/pull/50
