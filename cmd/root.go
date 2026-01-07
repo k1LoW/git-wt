@@ -121,9 +121,13 @@ Configuration:
 
   wt.nocd (--nocd)
     Do not change directory to the worktree. Only print the worktree path.
-    When set to true, also disables git() wrapper when used with --init.
-    Default: false
-    Example: git config wt.nocd true`,
+    Supported values:
+      - true, all: Never cd to worktree (both new and existing)
+      - create: Only prevent cd when creating new worktrees (allow cd to existing)
+      - false (default): Always cd to worktree
+    Note: --nocd flag always prevents cd regardless of config value.
+    Using --nocd with --init disables git() wrapper (wt.nocd config does not).
+    Example: git config wt.nocd create`,
 	RunE:              runRoot,
 	Args:              cobra.ArbitraryArgs,
 	ValidArgsFunction: completeBranches,

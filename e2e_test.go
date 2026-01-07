@@ -1301,6 +1301,131 @@ func TestE2E_NocdConfigWithInit(t *testing.T) {
 	}
 }
 
+// TestE2E_NocdCreateConfig tests that wt.nocd=create prevents cd only for new worktrees.
+func TestE2E_NocdCreateConfig(t *testing.T) {
+	binPath := buildBinary(t)
+
+	tests := []struct {
+		name       string
+		shell      string
+		scriptFunc func(repoRoot, pathDir string) string
+	}{
+		{
+			name:  "bash",
+			shell: "bash",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init bash)"
+
+# Create a worktree first (should NOT cd because wt.nocd=create)
+git wt nocd-create-bash-new
+NEW_PWD=$(pwd)
+
+# Switch to existing worktree (should cd because wt.nocd=create allows existing)
+git wt nocd-create-bash-new
+EXISTING_PWD=$(pwd)
+
+echo "NEW_PWD=$NEW_PWD"
+echo "EXISTING_PWD=$EXISTING_PWD"
+`, repoRoot, pathDir)
+			},
+		},
+		{
+			name:  "zsh",
+			shell: "zsh",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init zsh)"
+
+# Create a worktree first (should NOT cd because wt.nocd=create)
+git wt nocd-create-zsh-new
+NEW_PWD=$(pwd)
+
+# Switch to existing worktree (should cd because wt.nocd=create allows existing)
+git wt nocd-create-zsh-new
+EXISTING_PWD=$(pwd)
+
+echo "NEW_PWD=$NEW_PWD"
+echo "EXISTING_PWD=$EXISTING_PWD"
+`, repoRoot, pathDir)
+			},
+		},
+		{
+			name:  "fish",
+			shell: "fish",
+			scriptFunc: func(repoRoot, pathDir string) string {
+				return fmt.Sprintf(`
+cd %q
+set -x PATH %s $PATH
+git wt --init fish | source
+
+# Create a worktree first (should NOT cd because wt.nocd=create)
+git wt nocd-create-fish-new
+set NEW_PWD (pwd)
+
+# Switch to existing worktree (should cd because wt.nocd=create allows existing)
+git wt nocd-create-fish-new
+set EXISTING_PWD (pwd)
+
+echo "NEW_PWD=$NEW_PWD"
+echo "EXISTING_PWD=$EXISTING_PWD"
+`, repoRoot, pathDir)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := exec.LookPath(tt.shell); err != nil {
+				t.Skipf("%s not available", tt.shell)
+			}
+
+			repo := testutil.NewTestRepo(t)
+			repo.CreateFile("README.md", "# Test")
+			repo.Commit("initial commit")
+
+			// Set wt.nocd=create in config
+			repo.Git("config", "wt.nocd", "create")
+
+			script := tt.scriptFunc(repo.Root, filepath.Dir(binPath))
+			cmd := exec.Command(tt.shell, "-c", script) //#nosec G204
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("%s shell integration with wt.nocd=create config failed: %v\noutput: %s", tt.shell, err, out)
+			}
+
+			output := string(out)
+
+			// Parse NEW_PWD and EXISTING_PWD from output
+			var newPwd, existingPwd string
+			for _, line := range strings.Split(output, "\n") {
+				if strings.HasPrefix(line, "NEW_PWD=") {
+					newPwd = strings.TrimPrefix(line, "NEW_PWD=")
+				}
+				if strings.HasPrefix(line, "EXISTING_PWD=") {
+					existingPwd = strings.TrimPrefix(line, "EXISTING_PWD=")
+				}
+			}
+
+			// With wt.nocd=create, creating new worktree should NOT cd
+			if strings.Contains(newPwd, "nocd-create-"+tt.name+"-new") {
+				t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd)
+			}
+
+			// With wt.nocd=create, switching to existing worktree should cd
+			if !strings.Contains(existingPwd, "nocd-create-"+tt.name+"-new") {
+				t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd)
+			}
+		})
+	}
+}
+
 // TestE2E_HookFlag tests the --hook flag runs commands after creating a new worktree.
 func TestE2E_HookFlag(t *testing.T) {
 	binPath := buildBinary(t)

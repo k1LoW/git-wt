@@ -12,15 +12,19 @@ const bashGitWrapper = `
 git() {
     if [[ "$1" == "wt" ]]; then
         shift
-        local no_switch=false
-        # Check wt.nocd config
-        if [[ "$(command git config --get wt.nocd 2>/dev/null)" == "true" ]]; then
-            no_switch=true
+        local nocd_mode=""
+        local nocd_flag=false
+        # Check wt.nocd config (supports: true, all, create, false)
+        nocd_mode="$(command git config --get wt.nocd 2>/dev/null || true)"
+        local existing_worktrees=""
+        if [[ "$nocd_mode" == "create" ]]; then
+            # Get existing worktree paths before running git wt
+            existing_worktrees=$(command git worktree list --porcelain 2>/dev/null | grep '^worktree ' | cut -d' ' -f2- || true)
         fi
         local args=()
         for arg in "$@"; do
             if [[ "$arg" == "--nocd" || "$arg" == "--no-switch-directory" ]]; then
-                no_switch=true
+                nocd_flag=true
             fi
             args+=("$arg")
         done
@@ -35,10 +39,26 @@ git() {
             echo "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && echo "$line"
             done
-            if [[ "$no_switch" == "true" ]]; then
-                echo "$last_line"
-            else
+            # Determine whether to cd
+            local should_cd=true
+            if [[ "$nocd_flag" == "true" ]]; then
+                # --nocd flag always prevents cd
+                should_cd=false
+            elif [[ "$nocd_mode" == "true" || "$nocd_mode" == "all" ]]; then
+                # wt.nocd=true/all prevents cd for all operations
+                should_cd=false
+            elif [[ "$nocd_mode" == "create" ]]; then
+                # wt.nocd=create only prevents cd for new worktrees
+                if echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                    should_cd=true  # existing worktree, allow cd
+                else
+                    should_cd=false  # new worktree, prevent cd
+                fi
+            fi
+            if [[ "$should_cd" == "true" ]]; then
                 cd "$last_line"
+            else
+                echo "$last_line"
             fi
         else
             echo "$result"
@@ -72,15 +92,19 @@ const zshGitWrapper = `
 git() {
     if [[ "$1" == "wt" ]]; then
         shift
-        local no_switch=false
-        # Check wt.nocd config
-        if [[ "$(command git config --get wt.nocd 2>/dev/null)" == "true" ]]; then
-            no_switch=true
+        local nocd_mode=""
+        local nocd_flag=false
+        # Check wt.nocd config (supports: true, all, create, false)
+        nocd_mode="$(command git config --get wt.nocd 2>/dev/null || true)"
+        local existing_worktrees=""
+        if [[ "$nocd_mode" == "create" ]]; then
+            # Get existing worktree paths before running git wt
+            existing_worktrees=$(command git worktree list --porcelain 2>/dev/null | grep '^worktree ' | cut -d' ' -f2- || true)
         fi
         local args=()
         for arg in "$@"; do
             if [[ "$arg" == "--nocd" || "$arg" == "--no-switch-directory" ]]; then
-                no_switch=true
+                nocd_flag=true
             fi
             args+=("$arg")
         done
@@ -95,10 +119,26 @@ git() {
             echo "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && echo "$line"
             done
-            if [[ "$no_switch" == "true" ]]; then
-                echo "$last_line"
-            else
+            # Determine whether to cd
+            local should_cd=true
+            if [[ "$nocd_flag" == "true" ]]; then
+                # --nocd flag always prevents cd
+                should_cd=false
+            elif [[ "$nocd_mode" == "true" || "$nocd_mode" == "all" ]]; then
+                # wt.nocd=true/all prevents cd for all operations
+                should_cd=false
+            elif [[ "$nocd_mode" == "create" ]]; then
+                # wt.nocd=create only prevents cd for new worktrees
+                if echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                    should_cd=true  # existing worktree, allow cd
+                else
+                    should_cd=false  # new worktree, prevent cd
+                fi
+            fi
+            if [[ "$should_cd" == "true" ]]; then
                 cd "$last_line"
+            else
+                echo "$last_line"
             fi
         else
             echo "$result"
@@ -152,14 +192,17 @@ const fishGitWrapper = `
 # Override git command to cd after 'git wt <branch>'
 function git --wraps git
     if test "$argv[1]" = "wt"
-        set -l no_switch false
-        # Check wt.nocd config
-        if test "$(command git config --get wt.nocd 2>/dev/null)" = "true"
-            set no_switch true
+        set -l nocd_flag false
+        # Check wt.nocd config (supports: true, all, create, false)
+        set -l nocd_mode (command git config --get wt.nocd 2>/dev/null)
+        set -l existing_worktrees
+        if test "$nocd_mode" = "create"
+            # Get existing worktree paths before running git wt
+            set existing_worktrees (command git worktree list --porcelain 2>/dev/null | grep '^worktree ' | cut -d' ' -f2-)
         end
         for arg in $argv[2..]
             if string match -q -- "--nocd" "$arg"; or string match -q -- "--no-switch-directory" "$arg"
-                set no_switch true
+                set nocd_flag true
                 break
             end
         end
@@ -173,10 +216,26 @@ function git --wraps git
             for line in $result[1..-2]
                 printf "%s\n" "$line"
             end
-            if test "$no_switch" = "true"
-                printf "%s\n" "$last_line"
-            else
+            # Determine whether to cd
+            set -l should_cd true
+            if test "$nocd_flag" = "true"
+                # --nocd flag always prevents cd
+                set should_cd false
+            else if test "$nocd_mode" = "true" -o "$nocd_mode" = "all"
+                # wt.nocd=true/all prevents cd for all operations
+                set should_cd false
+            else if test "$nocd_mode" = "create"
+                # wt.nocd=create only prevents cd for new worktrees
+                if contains -- "$last_line" $existing_worktrees
+                    set should_cd true  # existing worktree, allow cd
+                else
+                    set should_cd false  # new worktree, prevent cd
+                end
+            end
+            if test "$should_cd" = "true"
                 cd "$last_line"
+            else
+                printf "%s\n" "$last_line"
             end
         else
             for line in $result
@@ -214,13 +273,13 @@ const powershellGitWrapper = "" +
 	"function Invoke-Git {\n" +
 	"    if ($args[0] -eq \"wt\") {\n" +
 	"        $wtArgs = $args[1..($args.Length-1)]\n" +
-	"        $noSwitch = ($wtArgs -contains \"--nocd\") -or ($wtArgs -contains \"--no-switch-directory\")\n" +
-	"        # Check wt.nocd config\n" +
-	"        if (-not $noSwitch) {\n" +
-	"            $nocdConfig = & git.exe config --get wt.nocd 2>$null\n" +
-	"            if ($nocdConfig -eq \"true\") {\n" +
-	"                $noSwitch = $true\n" +
-	"            }\n" +
+	"        $nocdFlag = ($wtArgs -contains \"--nocd\") -or ($wtArgs -contains \"--no-switch-directory\")\n" +
+	"        # Check wt.nocd config (supports: true, all, create, false)\n" +
+	"        $nocdMode = & git.exe config --get wt.nocd 2>$null\n" +
+	"        $existingWorktrees = @()\n" +
+	"        if ($nocdMode -eq \"create\") {\n" +
+	"            # Get existing worktree paths before running git wt\n" +
+	"            $existingWorktrees = @(& git.exe worktree list --porcelain 2>$null | Where-Object { $_ -match '^worktree ' } | ForEach-Object { $_ -replace '^worktree ', '' })\n" +
 	"        }\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = \"1\"\n" +
 	"        $result = & git.exe wt @wtArgs 2>&1\n" +
@@ -233,10 +292,26 @@ const powershellGitWrapper = "" +
 	"            if ($lines.Count -gt 1) {\n" +
 	"                $lines[0..($lines.Count-2)] | ForEach-Object { Write-Output $_ }\n" +
 	"            }\n" +
-	"            if ($noSwitch) {\n" +
-	"                Write-Output $lastLine\n" +
-	"            } else {\n" +
+	"            # Determine whether to cd\n" +
+	"            $shouldCd = $true\n" +
+	"            if ($nocdFlag) {\n" +
+	"                # --nocd flag always prevents cd\n" +
+	"                $shouldCd = $false\n" +
+	"            } elseif ($nocdMode -eq \"true\" -or $nocdMode -eq \"all\") {\n" +
+	"                # wt.nocd=true/all prevents cd for all operations\n" +
+	"                $shouldCd = $false\n" +
+	"            } elseif ($nocdMode -eq \"create\") {\n" +
+	"                # wt.nocd=create only prevents cd for new worktrees\n" +
+	"                if ($existingWorktrees -contains $lastLine) {\n" +
+	"                    $shouldCd = $true  # existing worktree, allow cd\n" +
+	"                } else {\n" +
+	"                    $shouldCd = $false  # new worktree, prevent cd\n" +
+	"                }\n" +
+	"            }\n" +
+	"            if ($shouldCd) {\n" +
 	"                Set-Location $lastLine\n" +
+	"            } else {\n" +
+	"                Write-Output $lastLine\n" +
 	"            }\n" +
 	"        } else {\n" +
 	"            Write-Output $result\n" +

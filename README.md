@@ -181,15 +181,27 @@ $ git wt --hook "npm install" feature-branch
 
 #### `wt.nocd` / `--nocd`
 
-Do not change directory to the worktree. Only print the worktree path. When set to true, also disables `git()` wrapper when used with `--init`.
+Do not change directory to the worktree. Only print the worktree path.
+
+Supported values for `wt.nocd` config:
+- `true` or `all`: Never cd to worktree (both new and existing).
+- `create`: Only prevent cd when creating new worktrees (allow cd to existing worktrees).
+- `false` (default): Always cd to worktree.
 
 ``` console
+# Prevent cd only for new worktrees (allow cd to existing)
+$ git config wt.nocd create
+
+# Never cd to any worktree
 $ git config wt.nocd true
-# or use for a single invocation
+
+# Use --nocd flag for a single invocation (always prevents cd)
 $ git wt --nocd feature-branch
 ```
 
-Default: `false`
+> [!NOTE]
+> - The `--nocd` flag always prevents cd regardless of config value.
+> - Using `--nocd` with `--init` disables the `git()` wrapper entirely (only shell completion is output). The `wt.nocd` config does not affect `--init` output.
 
 ## Recipes
 
@@ -206,9 +218,9 @@ $ git wt $(git wt | tail -n +2 | peco | awk '{print $(NF-1)}')
 When creating a new worktree, open and switch to a new tmux window named `{repo}:{branch}`. The working directory will be the new worktree:
 
 ``` console
-$ git config wt.nocd true
+$ git config wt.nocd create
 $ git config --add wt.hook 'tmux neww -c "$PWD" -n "$(basename -s .git `git remote get-url origin`):$(git branch --show-current)"'
 ```
 
-- `wt.nocd true`: Prevents automatic directory change in the current shell, since tmux will open a new window in the worktree directory instead.
+- `wt.nocd create`: Prevents automatic directory change when creating new worktrees (tmux opens a new window instead), but still allows cd when switching to existing worktrees.
 - `wt.hook 'tmux neww ...'`: Creates a new tmux window (`neww`) with `-c "$PWD"` setting the working directory to the new worktree, and `-n "..."` naming the window as `{repo}:{branch}`.
