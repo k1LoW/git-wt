@@ -275,7 +275,7 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 			}
 
 			// Add branch name with [branch: worktree=dir] or [worktree: branch=name] marker
-			if wt.Branch != "" && wt.Branch != "(detached)" {
+			if wt.Branch != "" && wt.Branch != "[detached]" {
 				if _, exists := seen[wt.Branch]; !exists {
 					seen[wt.Branch] = struct{}{}
 					worktreeNames[wt.Branch] = struct{}{}
@@ -306,7 +306,7 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 					seen[wtDirName] = struct{}{}
 					worktreeNames[wtDirName] = struct{}{}
 					branchInfo := wt.Branch
-					if branchInfo == "" || branchInfo == "(detached)" {
+					if branchInfo == "" || branchInfo == "[detached]" {
 						branchInfo = "detached"
 					}
 					var desc string

@@ -60,7 +60,8 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 		case line == "bare":
 			current.Bare = true
 		case line == "detached":
-			current.Branch = "(detached)"
+			// Use an invalid branch name as the detached HEAD marker
+			current.Branch = "[detached]"
 		}
 	}
 
@@ -110,7 +111,7 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 
 	// First, try to find by branch name
 	for _, wt := range worktrees {
-		if wt.Branch == query {
+		if wt.Branch != "[detached]" && wt.Branch == query {
 			return &wt, nil
 		}
 	}
