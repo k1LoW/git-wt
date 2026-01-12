@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// DetachedMarker is used to indicate a detached HEAD state.
+// This is an invalid branch name to avoid confusion with actual branch names.
+const DetachedMarker = "[detached]"
+
 // Worktree represents a git worktree.
 type Worktree struct {
 	Path   string
@@ -60,8 +64,7 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 		case line == "bare":
 			current.Bare = true
 		case line == "detached":
-			// Use an invalid branch name as the detached HEAD marker
-			current.Branch = "[detached]"
+			current.Branch = DetachedMarker
 		}
 	}
 
@@ -111,7 +114,7 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 
 	// First, try to find by branch name
 	for _, wt := range worktrees {
-		if wt.Branch != "[detached]" && wt.Branch == query {
+		if wt.Branch != DetachedMarker && wt.Branch == query {
 			return &wt, nil
 		}
 	}
