@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.13.1](https://github.com/k1LoW/git-wt/compare/v0.13.0...v0.13.1) - 2026-01-14
+### Fix bug 🐛
+- fix: MainRepoRoot to return proper repo root by @jackchuka in https://github.com/k1LoW/git-wt/pull/70
+
 ## [v0.13.0](https://github.com/k1LoW/git-wt/compare/v0.12.1...v0.13.0) - 2026-01-12
 ### Breaking Changes 🛠
 - fix: use an invalid branch name as the detached HEAD marker by @yoichi in https://github.com/k1LoW/git-wt/pull/68
