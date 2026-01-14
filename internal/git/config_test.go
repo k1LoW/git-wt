@@ -86,6 +86,43 @@ func TestRepoRoot(t *testing.T) {
 	}
 }
 
+func TestMainRepoRoot(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	// Create a subdirectory
+	repo.CreateFile("subdir/file.txt", "content")
+	repo.Commit("add subdir")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	root, err := MainRepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if root != repo.Root {
+		t.Errorf("MainRepoRoot() = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+
+	// Test from subdirectory
+	subdir := filepath.Join(repo.Root, "subdir")
+	if err := os.Chdir(subdir); err != nil {
+		t.Fatalf("failed to chdir to subdir: %v", err)
+	}
+
+	root, err = MainRepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error from subdir: %v", err)
+	}
+
+	if root != repo.Root {
+		t.Errorf("MainRepoRoot() from subdir = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+}
+
 func TestRepoName(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")

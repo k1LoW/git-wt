@@ -71,7 +71,7 @@ func RepoRoot(ctx context.Context) (string, error) {
 // MainRepoRoot returns the root directory of the main git repository.
 // Unlike RepoRoot, this returns the main repository root even when called from a worktree.
 func MainRepoRoot(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "--git-common-dir")
+	cmd, err := gitCommand(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		return "", err
 	}
@@ -80,15 +80,6 @@ func MainRepoRoot(ctx context.Context) (string, error) {
 		return "", err
 	}
 	gitCommonDir := strings.TrimSpace(string(out))
-
-	// If git-common-dir is relative (e.g., ".git"), resolve it from current repo root
-	if !filepath.IsAbs(gitCommonDir) {
-		repoRoot, err := RepoRoot(ctx)
-		if err != nil {
-			return "", err
-		}
-		gitCommonDir = filepath.Join(repoRoot, gitCommonDir)
-	}
 
 	// The main repo root is the parent of the .git directory
 	return filepath.Dir(gitCommonDir), nil
