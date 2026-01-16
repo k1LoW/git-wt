@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.13.2](https://github.com/k1LoW/git-wt/compare/v0.13.1...v0.13.2) - 2026-01-16
+### Other Changes
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/72
+
 ## [v0.13.1](https://github.com/k1LoW/git-wt/compare/v0.13.0...v0.13.1) - 2026-01-14
 ### Fix bug 🐛
 - fix: MainRepoRoot to return proper repo root by @jackchuka in https://github.com/k1LoW/git-wt/pull/70
