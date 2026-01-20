@@ -4,6 +4,10 @@
 ### Fix bug 🐛
 - fix: move default branch check before worktree removal by @k1LoW in https://github.com/k1LoW/git-wt/pull/78
 
+## [v0.14.2](https://github.com/k1LoW/git-wt/compare/v0.14.1...v0.14.2) - 2026-01-20
+### Fix bug 🐛
+- fix: move default branch check before worktree removal by @k1LoW in https://github.com/k1LoW/git-wt/pull/78
+
 ## [v0.14.1](https://github.com/k1LoW/git-wt/compare/v0.14.0...v0.14.1) - 2026-01-20
 ### Other Changes
 - fix: allow worktree deletion for default branch while protecting the branch itself by @k1LoW in https://github.com/k1LoW/git-wt/pull/76
