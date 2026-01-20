@@ -12,7 +12,10 @@ $ git wt -D <branch|worktree>  # Force delete worktree and branch
 ```
 
 > [!NOTE]
-> The default branch (e.g., main, master) is protected from accidental deletion. Use `--allow-delete-default` to override this protection.
+> The default branch (e.g., main, master) is protected from accidental deletion.
+> - If the default branch has a worktree, the worktree is deleted but the branch is preserved.
+> - If the default branch has no worktree, deletion is blocked entirely.
+> - Use `--allow-delete-default` to override this protection and delete the branch.
 
 ## Install
 

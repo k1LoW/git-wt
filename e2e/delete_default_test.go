@@ -119,6 +119,7 @@ func TestE2E_DeleteDefaultBranch(t *testing.T) {
 		}
 
 		// Try to delete multiple branches including main
+		// feature-a is deleted first, then main fails, feature-b is not processed
 		out, err := runGitWt(t, binPath, repo.Root, "-D", "feature-a", "main", "feature-b")
 		if err == nil {
 			t.Fatal("should fail when deleting multiple branches including default")
@@ -127,19 +128,41 @@ func TestE2E_DeleteDefaultBranch(t *testing.T) {
 			t.Errorf("error should mention default branch protection, got: %s", out)
 		}
 
-		// feature-a should NOT be deleted (check happens before any deletion)
+		// feature-a IS deleted (processed before main)
 		cmd = exec.Command("git", "branch", "--list", "feature-a")
 		cmd.Dir = repo.Root
 		branchOut, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("git branch --list failed: %v", err)
 		}
-		if !strings.Contains(string(branchOut), "feature-a") {
-			t.Error("feature-a should still exist (deletion should not happen if default branch is in args)")
+		if strings.Contains(string(branchOut), "feature-a") {
+			t.Error("feature-a should have been deleted (processed before main)")
+		}
+
+		// feature-b should NOT be deleted (processing stops at main)
+		cmd = exec.Command("git", "branch", "--list", "feature-b")
+		cmd.Dir = repo.Root
+		branchOut, err = cmd.Output()
+		if err != nil {
+			t.Fatalf("git branch --list failed: %v", err)
+		}
+		if !strings.Contains(string(branchOut), "feature-b") {
+			t.Error("feature-b should still exist (processing stops at main)")
+		}
+
+		// main should still exist
+		cmd = exec.Command("git", "branch", "--list", "main")
+		cmd.Dir = repo.Root
+		branchOut, err = cmd.Output()
+		if err != nil {
+			t.Fatalf("git branch --list failed: %v", err)
+		}
+		if !strings.Contains(string(branchOut), "main") {
+			t.Error("main branch should still exist (protected)")
 		}
 	})
 
-	t.Run("blocks_worktree_with_default_branch", func(t *testing.T) {
+	t.Run("allows_worktree_deletion_but_protects_default_branch", func(t *testing.T) {
 		t.Parallel()
 		repo := testutil.NewTestRepo(t)
 		repo.CreateFile("README.md", "# Test")
@@ -159,13 +182,37 @@ func TestE2E_DeleteDefaultBranch(t *testing.T) {
 			t.Fatalf("failed to create worktree for main: %v\noutput: %s", err, out)
 		}
 
-		// Try to delete the worktree with -d
+		// Delete the worktree with -d (should succeed, but branch should remain)
 		out, err = runGitWt(t, binPath, repo.Root, "-d", "main")
-		if err == nil {
-			t.Fatal("should fail when deleting worktree of default branch")
+		if err != nil {
+			t.Fatalf("should succeed when deleting worktree of default branch: %v\noutput: %s", err, out)
 		}
-		if !strings.Contains(out, "cannot delete default branch") {
-			t.Errorf("error should mention default branch protection, got: %s", out)
+
+		// Verify the output mentions that branch was not deleted
+		if !strings.Contains(out, "branch is default, not deleted") {
+			t.Errorf("output should mention that branch is protected, got: %s", out)
+		}
+
+		// Verify the branch still exists
+		cmd = exec.Command("git", "branch", "--list", "main")
+		cmd.Dir = repo.Root
+		branchOut, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("git branch --list failed: %v", err)
+		}
+		if !strings.Contains(string(branchOut), "main") {
+			t.Error("main branch should still exist (protected as default)")
+		}
+
+		// Verify the worktree was actually removed
+		cmd = exec.Command("git", "worktree", "list", "--porcelain")
+		cmd.Dir = repo.Root
+		wtOut, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("git worktree list failed: %v", err)
+		}
+		if strings.Contains(string(wtOut), "branch refs/heads/main") {
+			t.Error("worktree for main should have been removed")
 		}
 	})
 }

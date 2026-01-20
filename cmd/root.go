@@ -64,7 +64,9 @@ Examples:
   git wt -D <branch|worktree>...            Force delete worktree and branch
 
 Note: The default branch (e.g., main, master) is protected from accidental deletion.
-      Use --allow-delete-default to override this protection.
+      - With worktree: worktree is deleted, but branch is preserved.
+      - Without worktree: deletion is blocked entirely.
+      Use --allow-delete-default to override and delete the branch.
 
 Shell Integration:
   Add the following to your shell config to enable worktree switching and completion:
@@ -457,19 +459,6 @@ func listWorktrees(ctx context.Context) error {
 }
 
 func deleteWorktrees(ctx context.Context, branches []string, force bool) error {
-	// Check for default branch protection
-	if !allowDeleteDefault {
-		for _, branch := range branches {
-			isDefault, err := git.IsDefaultBranch(ctx, branch)
-			if err != nil {
-				return fmt.Errorf("failed to check default branch: %w", err)
-			}
-			if isDefault {
-				return fmt.Errorf("cannot delete default branch %q: use --allow-delete-default to override", branch)
-			}
-		}
-	}
-
 	// Get main repo root before any deletion (needed for running git commands after worktree removal)
 	mainRoot, err := git.MainRepoRoot(ctx)
 	if err != nil {
@@ -519,7 +508,20 @@ func deleteWorktrees(ctx context.Context, branches []string, force bool) error {
 			// Let git branch -d/-D handle the merge check
 			// If we deleted the current worktree, run git from mainRoot since cwd no longer exists
 			if branchExists {
-				if err := git.DeleteBranchInDir(ctx, wt.Branch, force, mainRoot); err != nil {
+				// Check if this is the default branch
+				isDefault, err := git.IsDefaultBranch(ctx, wt.Branch)
+				if err != nil {
+					return fmt.Errorf("failed to check default branch: %w", err)
+				}
+
+				if isDefault && !allowDeleteDefault {
+					// Default branch is protected - only delete worktree
+					if wtDir == wt.Branch {
+						fmt.Printf("Deleted worktree %q (branch is default, not deleted)\n", wt.Branch)
+					} else {
+						fmt.Printf("Deleted worktree %q (branch %q is default, not deleted)\n", wtDir, wt.Branch)
+					}
+				} else if err := git.DeleteBranchInDir(ctx, wt.Branch, force, mainRoot); err != nil {
 					// Treat as non-fatal since worktree removal succeeded
 					if wtDir == wt.Branch {
 						fmt.Printf("Deleted worktree, but failed to delete branch %q (use -D to force)\n", wt.Branch)
@@ -547,6 +549,15 @@ func deleteWorktrees(ctx context.Context, branches []string, force bool) error {
 
 		if !exists {
 			return fmt.Errorf("no worktree or branch found for %q", branch)
+		}
+
+		// Check if this is the default branch (protected when no worktree exists)
+		isDefault, err := git.IsDefaultBranch(ctx, branch)
+		if err != nil {
+			return fmt.Errorf("failed to check default branch: %w", err)
+		}
+		if isDefault && !allowDeleteDefault {
+			return fmt.Errorf("cannot delete default branch %q: use --allow-delete-default to override", branch)
 		}
 
 		if err := git.DeleteBranch(ctx, branch, force); err != nil {
