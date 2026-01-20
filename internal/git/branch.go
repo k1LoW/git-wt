@@ -171,16 +171,19 @@ func DefaultBranch(ctx context.Context) (string, error) {
 		return branch, nil
 	}
 
-	// Fallback: check common default branch names
-	for _, name := range []string{"main", "master"} {
-		exists, err := LocalBranchExists(ctx, name)
-		if err != nil {
-			continue
-		}
-		if exists {
-			return name, nil
-		}
+	// Fallback: check git config init.defaultBranch
+	cmd, err = gitCommand(ctx, "config", "--get", "init.defaultBranch")
+	if err != nil {
+		return "", err
 	}
-
-	return "", nil
+	out, err = cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	configBranch := strings.TrimSpace(string(out))
+	if configBranch == "" {
+		// If init.defaultBranch is not set, use Git's built-in default
+		configBranch = "master"
+	}
+	return configBranch, nil
 }

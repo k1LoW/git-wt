@@ -229,11 +229,13 @@ func TestDefaultBranch(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
+	// Set init.defaultBranch in the test repo
+	repo.Git("config", "init.defaultBranch", "main")
 
 	restore := repo.Chdir()
 	defer restore()
 
-	// Without remote, should fallback to checking main/master
+	// Without remote, should fallback to git config init.defaultBranch
 	branch, err := DefaultBranch(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
