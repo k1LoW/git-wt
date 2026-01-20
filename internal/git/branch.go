@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const gitDefaultBranch = "master"
+
 // BranchExists checks if a branch exists (local or remote).
 func BranchExists(ctx context.Context, name string) (bool, error) {
 	// Check local branch
@@ -176,14 +178,11 @@ func DefaultBranch(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err = cmd.Output()
-	if err != nil {
-		return "", err
-	}
+	out, _ = cmd.Output() //nostyle:handlerrors
 	configBranch := strings.TrimSpace(string(out))
 	if configBranch == "" {
 		// If init.defaultBranch is not set, use Git's built-in default
-		configBranch = "master"
+		configBranch = gitDefaultBranch
 	}
 	return configBranch, nil
 }
