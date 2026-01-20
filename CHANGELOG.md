@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.14.1](https://github.com/k1LoW/git-wt/compare/v0.14.0...v0.14.1) - 2026-01-20
+### Other Changes
+- fix: allow worktree deletion for default branch while protecting the branch itself by @k1LoW in https://github.com/k1LoW/git-wt/pull/76
+
 ## [v0.14.0](https://github.com/k1LoW/git-wt/compare/v0.13.1...v0.14.0) - 2026-01-20
 ### Breaking Changes 🛠
 - fix: improve default branch detection by @k1LoW in https://github.com/k1LoW/git-wt/pull/74
