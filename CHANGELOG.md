@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.15.0](https://github.com/k1LoW/git-wt/compare/v0.14.2...v0.15.0) - 2026-01-21
+### New Features 🎉
+- Add .gitignore and README.md to basedir on worktree creation by @Songmu in https://github.com/k1LoW/git-wt/pull/81
+
 ## [v0.14.2](https://github.com/k1LoW/git-wt/compare/v0.14.1...v0.14.2) - 2026-01-20
 ### Fix bug 🐛
 - fix: move default branch check before worktree removal by @k1LoW in https://github.com/k1LoW/git-wt/pull/78
