@@ -180,6 +180,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return listWorktrees(ctx)
 	}
 
+	// Normalize branch-like arguments before any git operation.
+	args = normalizeBranchArgs(args)
+
 	// Handle delete flags (multiple arguments allowed)
 	if forceDeleteFlag {
 		// Remove duplicates while preserving order
@@ -655,4 +658,12 @@ func uniqueArgs(args []string) []string {
 		}
 	}
 	return result
+}
+
+func normalizeBranchArgs(args []string) []string {
+	normalized := make([]string, len(args))
+	for i, arg := range args {
+		normalized[i] = git.NormalizeBranchName(arg)
+	}
+	return normalized
 }
