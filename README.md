@@ -219,6 +219,22 @@ You can use [peco](https://github.com/peco/peco) for interactive worktree select
 $ git wt $(git wt | tail -n +2 | peco | awk '{print $(NF-1)}')
 ```
 
+### fzf
+
+You can use [fzf](https://github.com/junegunn/fzf) for interactive worktree selection:
+
+#### bash/zsh
+
+``` console
+$ cd $(git-wt | fzf | awk '{print $1}')
+```
+
+#### fish
+
+``` console
+$ cd (git-wt | fzf | awk '{print $1}')
+```
+
 ### tmux
 
 When creating a new worktree, open and switch to a new tmux window named `{repo}:{branch}`. The working directory will be the new worktree:
