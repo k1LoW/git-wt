@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.15.1](https://github.com/k1LoW/git-wt/compare/v0.15.0...v0.15.1) - 2026-01-26
+### Fix bug 🐛
+- fix: disable Cobra's default completion subcommand to avoid confusion by @k1LoW in https://github.com/k1LoW/git-wt/pull/89
+### Other Changes
+- chore(deps): bump github.com/olekukonko/tablewriter from 1.1.2 to 1.1.3 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/84
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/85
+- add fzf information for interactive selectn in README.md by @shishi in https://github.com/k1LoW/git-wt/pull/88
+
 ## [v0.15.0](https://github.com/k1LoW/git-wt/compare/v0.14.2...v0.15.0) - 2026-01-21
 ### New Features 🎉
 - Add .gitignore and README.md to basedir on worktree creation by @Songmu in https://github.com/k1LoW/git-wt/pull/81
