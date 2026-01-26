@@ -438,6 +438,38 @@ func TestE2E_CLI(t *testing.T) {
 	t.Parallel()
 	binPath := buildBinary(t)
 
+	t.Run("completion_subcommand_disabled", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// "git wt completion" should NOT show Cobra's default completion help.
+		// Instead, it should treat "completion" as a branch name.
+		out, err := runGitWt(t, binPath, repo.Root, "completion")
+
+		// Since "completion" branch doesn't exist and is not a valid ref,
+		// it should fail with an error (trying to create worktree for non-existent ref)
+		// OR succeed by creating a new branch named "completion".
+		// The key assertion is: it should NOT show Cobra's completion help message.
+		if strings.Contains(out, "Generate the autocompletion script") {
+			t.Errorf("should NOT show Cobra's default completion help, got: %s", out)
+		}
+		if strings.Contains(out, "completion [command]") {
+			t.Errorf("should NOT show Cobra's completion subcommand help, got: %s", out)
+		}
+
+		// If the command succeeds, it means a worktree was created for branch "completion"
+		if err == nil {
+			wtPath := worktreePath(out)
+			if !strings.Contains(wtPath, "completion") {
+				t.Errorf("expected worktree path to contain 'completion', got: %s", wtPath)
+			}
+		}
+		// If it fails, verify it's not because of Cobra's completion command
+		// (should be a git error about invalid reference, not Cobra help)
+	})
+
 	t.Run("version", func(t *testing.T) {
 		t.Parallel()
 		out, err := runGitWt(t, binPath, t.TempDir(), "--version")

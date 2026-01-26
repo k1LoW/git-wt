@@ -148,6 +148,10 @@ func Execute() {
 }
 
 func init() {
+	// Disable Cobra's default "completion" subcommand.
+	// git-wt uses its own shell integration via --init flag instead.
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch (safe delete, only if merged)")
 	rootCmd.Flags().BoolVarP(&forceDeleteFlag, "force-delete", "D", false, "Force delete worktree and branch")
 	rootCmd.Flags().StringVar(&initShell, "init", "", "Output shell initialization script (bash, zsh, fish, powershell)")
