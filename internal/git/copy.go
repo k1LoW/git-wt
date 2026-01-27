@@ -2,8 +2,6 @@ package git
 
 import (
 	"context"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -182,38 +180,3 @@ func listFilesMatchingCopyPatterns(ctx context.Context, root string, patterns []
 	return result, nil
 }
 
-func copyFile(src, dst string) error {
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-
-	// Skip directories
-	if srcInfo.IsDir() {
-		return nil
-	}
-
-	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return err
-	}
-
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-
-	// Preserve file permissions
-	return os.Chmod(dst, srcInfo.Mode())
-}
