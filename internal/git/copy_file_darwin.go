@@ -33,7 +33,8 @@ func copyFile(src, dst string) error {
 
 	// Try clonefile first (APFS Copy-on-Write)
 	if err := unix.Clonefile(src, dst, unix.CLONE_NOFOLLOW); err == nil {
-		// Clonefile succeeded, preserve file permissions
+		// clonefile preserves most permissions but strips setuid/setgid bits,
+		// so chmod is needed to restore the original mode completely.
 		return os.Chmod(dst, srcInfo.Mode())
 	}
 
