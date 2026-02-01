@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.17.0](https://github.com/k1LoW/git-wt/compare/v0.16.1...v0.17.0) - 2026-02-01
+### Breaking Changes 🛠
+- feat: change default wt.basedir from `../{gitroot}-wt` to `.wt` by @k1LoW in https://github.com/k1LoW/git-wt/pull/95
+### Other Changes
+- chore(deps): bump Songmu/tagpr from 1.12.1 to 1.14.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/94
+
 ## [v0.16.1](https://github.com/k1LoW/git-wt/compare/v0.16.0...v0.16.1) - 2026-01-27
 ### Breaking Changes 🛠
 - fix: exclude `basedir` from file copying to prevent circular copying by @k1LoW in https://github.com/k1LoW/git-wt/pull/92
