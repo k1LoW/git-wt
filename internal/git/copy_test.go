@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/k1LoW/git-wt/testutil"
 )
@@ -481,6 +482,35 @@ func TestCopyFilesToWorktree_Copy_WithCopyIgnored(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dstDir, ".env")); os.IsNotExist(err) {
 		t.Error(".env should have been copied")
+	}
+}
+
+func TestCopyFile_PreservesTimestamps(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "src.txt")
+	dstPath := filepath.Join(tmpDir, "dst.txt")
+
+	if err := os.WriteFile(srcPath, []byte("content"), 0644); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	// Set an old modification time on the source file
+	oldTime := time.Date(2020, 6, 15, 10, 30, 0, 0, time.UTC)
+	if err := os.Chtimes(srcPath, oldTime, oldTime); err != nil {
+		t.Fatalf("failed to set source file time: %v", err)
+	}
+
+	if err := copyFile(srcPath, dstPath); err != nil {
+		t.Fatalf("copyFile failed: %v", err)
+	}
+
+	dstInfo, err := os.Stat(dstPath)
+	if err != nil {
+		t.Fatalf("failed to stat destination file: %v", err)
+	}
+
+	if !dstInfo.ModTime().Equal(oldTime) {
+		t.Errorf("destination mtime = %v, want %v", dstInfo.ModTime(), oldTime)
 	}
 }
 

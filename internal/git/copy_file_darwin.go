@@ -60,5 +60,10 @@ func copyFileTraditional(src, dst string, srcInfo os.FileInfo) error {
 	}
 
 	// Preserve file permissions
-	return os.Chmod(dst, srcInfo.Mode())
+	if err := os.Chmod(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	// Preserve file timestamps
+	return os.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime())
 }
