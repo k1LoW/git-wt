@@ -485,6 +485,48 @@ func TestCopyFilesToWorktree_Copy_WithCopyIgnored(t *testing.T) {
 	}
 }
 
+// TestCopyFilesToWorktree_Copy_MatchesUntrackedFiles confirms that
+// the Copy option matches both ignored AND untracked files.
+func TestCopyFilesToWorktree_Copy_MatchesUntrackedFiles(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", ".env\n") // Only .env is ignored
+	repo.Commit("initial commit")
+
+	// Create an untracked file (not in .gitignore, not committed)
+	repo.CreateFile("untracked.txt", "untracked content")
+	// Create an ignored file for comparison
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Copy using a pattern that matches the untracked file
+	opts := CopyOptions{
+		CopyIgnored: false,
+		Copy:        []string{"untracked.txt"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// untracked.txt SHOULD be copied because Copy matches untracked files too
+	if _, err := os.Stat(filepath.Join(dstDir, "untracked.txt")); os.IsNotExist(err) {
+		t.Error("untracked.txt should have been copied")
+	}
+
+	// .env should NOT be copied (doesn't match the Copy pattern)
+	if _, err := os.Stat(filepath.Join(dstDir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env should NOT have been copied (doesn't match Copy pattern)")
+	}
+}
+
 func TestCopyFile_PreservesTimestamps(t *testing.T) {
 	tmpDir := t.TempDir()
 	srcPath := filepath.Join(tmpDir, "src.txt")
