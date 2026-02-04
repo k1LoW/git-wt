@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.18.0](https://github.com/k1LoW/git-wt/compare/v0.17.0...v0.18.0) - 2026-02-04
+### New Features 🎉
+- fix: preserve file timestamps when copying files by @dgrant in https://github.com/k1LoW/git-wt/pull/98
+- fix: check for untracked/modified files before worktree deletion by @dgrant in https://github.com/k1LoW/git-wt/pull/102
+- fix: --copy patterns now match untracked files by @dgrant in https://github.com/k1LoW/git-wt/pull/100
+
 ## [v0.17.0](https://github.com/k1LoW/git-wt/compare/v0.16.1...v0.17.0) - 2026-02-01
 ### Breaking Changes 🛠
 - feat: change default wt.basedir from `../{gitroot}-wt` to `.wt` by @k1LoW in https://github.com/k1LoW/git-wt/pull/95

@@ -168,13 +168,22 @@ func parseFileList(out string) []string {
 	return files
 }
 
-// listFilesMatchingCopyPatterns returns ignored files that match the given patterns.
+// listFilesMatchingCopyPatterns returns ignored and untracked files that match the given patterns.
 func listFilesMatchingCopyPatterns(ctx context.Context, root string, patterns []string) ([]string, error) {
 	// Get ignored files
 	ignored, err := listIgnoredFiles(ctx, root)
 	if err != nil {
 		return nil, err
 	}
+
+	// Get untracked files
+	untracked, err := ListUntrackedFiles(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine both lists
+	allFiles := append(ignored, untracked...)
 
 	// Build matcher from patterns
 	var matcherPatterns []gitignore.Pattern
@@ -185,7 +194,7 @@ func listFilesMatchingCopyPatterns(ctx context.Context, root string, patterns []
 
 	// Filter files matching patterns
 	var result []string
-	for _, file := range ignored {
+	for _, file := range allFiles {
 		pathComponents := strings.Split(file, string(filepath.Separator))
 		if matcher.Match(pathComponents, false) {
 			result = append(result, file)
