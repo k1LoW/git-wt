@@ -28,10 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Songmu/prompter"
 	"github.com/k1LoW/git-wt/internal/git"
 	"github.com/k1LoW/git-wt/version"
-	"github.com/mattn/go-isatty"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"
@@ -722,41 +720,5 @@ func checkLegacyBaseDir(ctx context.Context, currentBaseDir string) (string, err
 		return "", nil
 	}
 
-	return promptLegacyBaseDirMigration(ctx, legacyPath)
-}
-
-// promptLegacyBaseDirMigration prompts the user about the basedir default change.
-// Returns the basedir to use (empty string means use the new default).
-func promptLegacyBaseDirMigration(ctx context.Context, legacyPath string) (string, error) {
-	if !isInteractive() {
-		fmt.Fprintf(os.Stderr, "Warning: The default value for wt.basedir has changed from '%s' to '.wt'.\n", legacyBaseDirPattern)
-		fmt.Fprintf(os.Stderr, "An existing worktree directory was found at: %s\n", legacyPath)
-		fmt.Fprintf(os.Stderr, "To continue using the existing directory, run: git config wt.basedir \"%s\"\n\n", legacyBaseDirPattern)
-		return "", nil
-	}
-
-	fmt.Fprintf(os.Stderr, "The default value for wt.basedir has changed from '%s' to '.wt'.\n", legacyBaseDirPattern)
-	fmt.Fprintf(os.Stderr, "An existing worktree directory was found at: %s\n\n", legacyPath)
-
-	newDefault := "Continue with the new default (.wt)"
-	useLegacy := fmt.Sprintf("Set wt.basedir to %q to use the existing directory", legacyBaseDirPattern)
-	choice := prompter.Choose("What would you like to do?", []string{newDefault, useLegacy}, newDefault)
-
-	if choice == useLegacy {
-		if err := setGitConfig(ctx, "wt.basedir", legacyBaseDirPattern); err != nil {
-			return "", fmt.Errorf("failed to set git config: %w", err)
-		}
-		fmt.Fprintf(os.Stderr, "Set wt.basedir to '%s'\n\n", legacyBaseDirPattern)
-		return legacyBaseDirPattern, nil
-	}
-
-	return "", nil
-}
-
-func isInteractive() bool {
-	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
-}
-
-func setGitConfig(ctx context.Context, key, value string) error {
-	return git.SetConfig(ctx, key, value)
+	return "", fmt.Errorf("the default value for wt.basedir has changed from %q to %q and an existing directory was found at %q\nTo continue using the existing directory, run: git config wt.basedir %q\nOr delete the existing directory to use the new default", legacyBaseDirPattern, ".wt", legacyPath, legacyBaseDirPattern)
 }
