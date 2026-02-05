@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.18.1](https://github.com/k1LoW/git-wt/compare/v0.18.0...v0.18.1) - 2026-02-05
+### Fix bug 🐛
+- fix: prevent file completions in fish shell for git wt by @dgrant in https://github.com/k1LoW/git-wt/pull/109
+- fix: always error on legacy basedir migration instead of prompting by @k1LoW in https://github.com/k1LoW/git-wt/pull/112
+### Other Changes
+- chore(deps): bump Songmu/tagpr from 1.14.0 to 1.15.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/111
+
 ## [v0.18.0](https://github.com/k1LoW/git-wt/compare/v0.17.0...v0.18.0) - 2026-02-04
 ### New Features 🎉
 - fix: preserve file timestamps when copying files by @dgrant in https://github.com/k1LoW/git-wt/pull/98
