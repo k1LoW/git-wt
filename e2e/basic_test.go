@@ -538,7 +538,7 @@ func TestE2E_LegacyBaseDirMigration(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy_dir_exists_non_interactive_warns", func(t *testing.T) {
+	t.Run("legacy_dir_exists_errors", func(t *testing.T) {
 		t.Parallel()
 		repo := testutil.NewTestRepo(t)
 		repo.CreateFile("README.md", "# Test")
@@ -550,19 +550,40 @@ func TestE2E_LegacyBaseDirMigration(t *testing.T) {
 		}
 
 		out, stderr, err := runGitWtWithStderr(t, binPath, repo.Root, "feature")
-		if err != nil {
-			t.Fatalf("git-wt failed: %v\noutput: %s\nstderr: %s", err, out, stderr)
+		if err == nil {
+			t.Fatalf("expected error when legacy dir exists, but succeeded with output: %s", out)
 		}
 
-		if !strings.Contains(stderr, "Warning:") {
-			t.Errorf("expected warning on stderr, got: %s", stderr)
+		combinedOutput := out + "\n" + stderr
+		if !strings.Contains(combinedOutput, "wt.basedir has changed") {
+			t.Errorf("expected migration error message, got: %s", combinedOutput)
 		}
-		if !strings.Contains(stderr, "wt.basedir has changed") {
-			t.Errorf("expected migration message on stderr, got: %s", stderr)
+		if !strings.Contains(combinedOutput, "git config wt.basedir") {
+			t.Errorf("expected config suggestion in error message, got: %s", combinedOutput)
+		}
+	})
+
+	t.Run("legacy_dir_exists_works_after_config", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		legacyDir := filepath.Join(repo.Root, "..", "repo-wt")
+		if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+			t.Fatalf("failed to create legacy dir: %v", err)
+		}
+
+		// Set the config to use the legacy basedir
+		repo.Git("config", "wt.basedir", "../{gitroot}-wt")
+
+		out, stderr, err := runGitWtWithStderr(t, binPath, repo.Root, "feature")
+		if err != nil {
+			t.Fatalf("git-wt failed after setting config: %v\noutput: %s\nstderr: %s", err, out, stderr)
 		}
 
 		wtPath := worktreePath(out)
-		expectedPath := filepath.Join(repo.Root, ".wt", "feature")
+		expectedPath := filepath.Clean(filepath.Join(repo.Root, "../repo-wt/feature"))
 		if wtPath != expectedPath {
 			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
 		}

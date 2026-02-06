@@ -8,6 +8,44 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
+func TestShowPrefix(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile("some/path/file.txt", "content")
+	repo.Commit("initial commit")
+
+	t.Run("at_repo_root", func(t *testing.T) {
+		restore := repo.Chdir()
+		defer restore()
+
+		prefix, err := ShowPrefix(t.Context())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if prefix != "" {
+			t.Errorf("ShowPrefix() at root = %q, want empty string", prefix) //nostyle:errorstrings
+		}
+	})
+
+	t.Run("in_subdirectory", func(t *testing.T) {
+		restore := repo.Chdir()
+		defer restore()
+
+		subdir := filepath.Join(repo.Root, "some", "path")
+		if err := os.Chdir(subdir); err != nil {
+			t.Fatalf("failed to chdir: %v", err)
+		}
+
+		prefix, err := ShowPrefix(t.Context())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if prefix != "some/path" {
+			t.Errorf("ShowPrefix() in subdir = %q, want %q", prefix, "some/path") //nostyle:errorstrings
+		}
+	})
+}
+
 func TestGitConfig(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")

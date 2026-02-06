@@ -259,12 +259,25 @@ function __fish_git_wt_completions
     command git-wt __complete $args "$cur" 2>/dev/null | string match -rv '^:'
 end
 
+# Completions for direct git-wt invocation
+function __fish_git_wt_direct_completions
+    set -l cmd (commandline -opc)
+    # Pass all arguments after 'git-wt' to __complete
+    set -l args $cmd[2..]
+    set -l cur (commandline -ct)
+    command git-wt __complete $args "$cur" 2>/dev/null | string match -rv '^:'
+end
+
 function __fish_git_wt_needs_completion
     set -l cmd (commandline -opc)
     test (count $cmd) -ge 2 -a "$cmd[2]" = "wt"
 end
 
-complete -c git -n '__fish_git_wt_needs_completion' -f -a '(__fish_git_wt_completions)'
+# Completions for 'git wt'
+complete -x -c git -n '__fish_git_wt_needs_completion' -a '(__fish_git_wt_completions)'
+
+# Completions for direct 'git-wt' command (needed for fish's custom command handler)
+complete -x -c git-wt -a '(__fish_git_wt_direct_completions)'
 `
 
 // PowerShell hooks.

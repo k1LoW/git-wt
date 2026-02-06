@@ -19,6 +19,7 @@ const (
 	configKeyCopy          = "wt.copy"
 	configKeyHook          = "wt.hook"
 	configKeyNoCd          = "wt.nocd"
+	configKeyRelative      = "wt.relative"
 )
 
 // Config holds all wt configuration values.
@@ -31,6 +32,7 @@ type Config struct {
 	Copy          []string
 	Hooks         []string
 	NoCd          bool
+	Relative      bool
 }
 
 // GitConfig retrieves all git config values for a key.
@@ -53,6 +55,21 @@ func GitConfig(ctx context.Context, key string) ([]string, error) { //nolint:rev
 		return nil, nil
 	}
 	return strings.Split(trimmed, "\n"), nil
+}
+
+// ShowPrefix returns the path prefix of the current directory relative to the repository root.
+// It runs "git rev-parse --show-prefix" and strips the trailing slash.
+// Returns an empty string when at the repository root.
+func ShowPrefix(ctx context.Context) (string, error) {
+	cmd, err := gitCommand(ctx, "rev-parse", "--show-prefix")
+	if err != nil {
+		return "", err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
 }
 
 // RepoRoot returns the root directory of the current git repository (or worktree).
@@ -157,6 +174,13 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		return cfg, err
 	}
 	cfg.NoCd = len(val) > 0 && val[len(val)-1] == "true"
+
+	// Relative
+	val, err = GitConfig(ctx, configKeyRelative)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Relative = len(val) > 0 && val[len(val)-1] == "true"
 
 	return cfg, nil
 }
