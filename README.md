@@ -219,6 +219,27 @@ $ git wt --nocd feature-branch
 > - The `--nocd` flag always prevents cd regardless of config value.
 > - Using `--nocd` with `--init` disables the `git()` wrapper entirely (only shell completion is output). The `wt.nocd` config does not affect `--init` output.
 
+#### `wt.relative` / `--relative`
+
+Append the current subdirectory path to the worktree output path. When running from a subdirectory, the output path will include the subdirectory relative to the repository root (like `git diff --relative`).
+
+``` console
+# Enable relative path resolution
+$ git config wt.relative true
+
+# Example: running from repo/some/path/
+$ git wt feature-branch
+/abs/.wt/feature-branch/some/path  # instead of /abs/.wt/feature-branch
+
+# Use --relative flag for a single invocation
+$ git wt --relative feature-branch
+```
+
+Default: `false`
+
+> [!NOTE]
+> If the subdirectory does not exist in the target worktree, the output falls back to the worktree root path.
+
 ## Recipes
 
 ### peco

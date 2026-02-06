@@ -49,6 +49,7 @@ var (
 	copyFlag           []string
 	hookFlag           []string
 	allowDeleteDefault bool
+	relativeFlag       bool
 )
 
 var rootCmd = &cobra.Command{
@@ -133,7 +134,15 @@ Configuration:
       - false (default): Always cd to worktree
     Note: --nocd flag always prevents cd regardless of config value.
     Using --nocd with --init disables git() wrapper (wt.nocd config does not).
-    Example: git config wt.nocd create`,
+    Example: git config wt.nocd create
+
+  wt.relative (--relative)
+    Append the current subdirectory path to the worktree output path.
+    When running from a subdirectory, the output path will include the
+    subdirectory relative to the repository root (like git diff --relative).
+    Falls back to worktree root if the subdirectory does not exist in the worktree.
+    Default: false
+    Example: git config wt.relative true`,
 	RunE:              runRoot,
 	Args:              cobra.ArbitraryArgs,
 	ValidArgsFunction: completeBranches,
@@ -169,6 +178,7 @@ func init() {
 	rootCmd.Flags().StringArrayVar(&copyFlag, "copy", nil, "Always copy files matching pattern (can be specified multiple times)")
 	rootCmd.Flags().StringArrayVar(&hookFlag, "hook", nil, "Run command after creating new worktree (can be specified multiple times)")
 	rootCmd.Flags().BoolVar(&allowDeleteDefault, "allow-delete-default", false, "Allow deletion of the default branch (main, master)")
+	rootCmd.Flags().BoolVar(&relativeFlag, "relative", false, "Append current subdirectory to worktree path (like git diff --relative)")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -240,6 +250,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("hook") {
 		cfg.Hooks = hookFlag
+	}
+	if cmd.Flags().Changed("relative") {
+		cfg.Relative = relativeFlag
 	}
 
 	return cfg, nil
@@ -637,7 +650,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 	if wt != nil {
 		// Worktree exists, print path to stdout
 		// start-point is ignored when switching to existing worktree
-		fmt.Println(wt.Path)
+		fmt.Println(resolveRelative(ctx, wt.Path, cfg.Relative))
 		return nil
 	}
 
@@ -669,13 +682,29 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 	// Run hooks after creating new worktree
 	if err := git.RunHooks(ctx, cfg.Hooks, wtPath, os.Stderr); err != nil {
 		// Print path but return error so shell integration won't cd
-		fmt.Println(wtPath)
+		fmt.Println(resolveRelative(ctx, wtPath, cfg.Relative))
 		return err
 	}
 
 	// Print path to stdout
-	fmt.Println(wtPath)
+	fmt.Println(resolveRelative(ctx, wtPath, cfg.Relative))
 	return nil
+}
+
+func resolveRelative(ctx context.Context, wtPath string, relative bool) string {
+	if !relative {
+		return wtPath
+	}
+	prefix, err := git.ShowPrefix(ctx)
+	if err != nil || prefix == "" {
+		return wtPath
+	}
+	resolved := filepath.Join(wtPath, prefix)
+	info, err := os.Stat(resolved)
+	if err != nil || !info.IsDir() {
+		return wtPath
+	}
+	return resolved
 }
 
 // uniqueArgs removes duplicates from args while preserving order.

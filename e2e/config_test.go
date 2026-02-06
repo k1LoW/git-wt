@@ -876,6 +876,164 @@ func TestE2E_Hooks(t *testing.T) {
 	})
 }
 
+func TestE2E_Relative(t *testing.T) {
+	t.Parallel()
+	binPath := buildBinary(t)
+
+	t.Run("config_new_worktree", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.CreateFile("some/path/file.txt", "content")
+		repo.Commit("initial commit")
+
+		// Enable wt.relative
+		repo.Git("config", "wt.relative", "true")
+
+		// Run from subdirectory
+		subdir := filepath.Join(repo.Root, "some", "path")
+		stdout, _, err := runGitWtStdout(t, binPath, subdir, "relative-new-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Output path should end with some/path
+		if !strings.HasSuffix(stdout, filepath.Join("some", "path")) {
+			t.Errorf("stdout should end with some/path, got: %s", stdout)
+		}
+
+		// The path should be a valid directory
+		if _, err := os.Stat(stdout); os.IsNotExist(err) {
+			t.Errorf("resolved path should exist: %s", stdout)
+		}
+	})
+
+	t.Run("config_existing_worktree", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.CreateFile("some/path/file.txt", "content")
+		repo.Commit("initial commit")
+
+		// Create worktree first (from root, no relative)
+		_, err := runGitWt(t, binPath, repo.Root, "relative-existing-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Enable wt.relative
+		repo.Git("config", "wt.relative", "true")
+
+		// Switch to existing worktree from subdirectory
+		subdir := filepath.Join(repo.Root, "some", "path")
+		stdout, _, err := runGitWtStdout(t, binPath, subdir, "relative-existing-test")
+		if err != nil {
+			t.Fatalf("failed to switch worktree: %v", err)
+		}
+
+		// Output path should end with some/path
+		if !strings.HasSuffix(stdout, filepath.Join("some", "path")) {
+			t.Errorf("stdout should end with some/path, got: %s", stdout)
+		}
+	})
+
+	t.Run("flag_override", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.CreateFile("sub/file.txt", "content")
+		repo.Commit("initial commit")
+
+		// Config is NOT set (default false)
+		// Use --relative flag from subdirectory
+		subdir := filepath.Join(repo.Root, "sub")
+		stdout, _, err := runGitWtStdout(t, binPath, subdir, "--relative", "relative-flag-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Output path should end with sub
+		if !strings.HasSuffix(stdout, "sub") {
+			t.Errorf("stdout should end with 'sub', got: %s", stdout)
+		}
+	})
+
+	t.Run("fallback_when_subdir_not_exists", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Create an untracked directory (won't exist in the new worktree)
+		untrackedDir := filepath.Join(repo.Root, "untracked-dir")
+		if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
+			t.Fatalf("failed to create untracked dir: %v", err)
+		}
+
+		// Enable wt.relative
+		repo.Git("config", "wt.relative", "true")
+
+		// Run from untracked directory
+		stdout, _, err := runGitWtStdout(t, binPath, untrackedDir, "relative-fallback-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Output path should NOT contain untracked-dir (fallback to worktree root)
+		if strings.Contains(stdout, "untracked-dir") {
+			t.Errorf("stdout should not contain 'untracked-dir' (should fallback), got: %s", stdout)
+		}
+	})
+
+	t.Run("at_repo_root", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Enable wt.relative
+		repo.Git("config", "wt.relative", "true")
+
+		// Run from repo root
+		stdout, _, err := runGitWtStdout(t, binPath, repo.Root, "relative-root-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Output should be normal worktree path (no subdirectory appended)
+		if !strings.HasSuffix(stdout, "relative-root-test") {
+			t.Errorf("stdout should end with branch name at repo root, got: %s", stdout)
+		}
+	})
+
+	t.Run("disabled_by_default", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.CreateFile("some/path/file.txt", "content")
+		repo.Commit("initial commit")
+
+		// Config NOT set (default false)
+
+		// Run from subdirectory
+		subdir := filepath.Join(repo.Root, "some", "path")
+		stdout, _, err := runGitWtStdout(t, binPath, subdir, "relative-disabled-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Output should NOT contain some/path (relative is disabled)
+		if strings.HasSuffix(stdout, filepath.Join("some", "path")) {
+			t.Errorf("stdout should NOT end with some/path when relative is disabled, got: %s", stdout)
+		}
+
+		// Output should end with branch name
+		if !strings.HasSuffix(stdout, "relative-disabled-test") {
+			t.Errorf("stdout should end with branch name, got: %s", stdout)
+		}
+	})
+}
+
 // TestE2E_Complete tests the __complete command output.
 func TestE2E_Complete(t *testing.T) {
 	t.Parallel()
@@ -940,6 +1098,7 @@ func TestE2E_Complete(t *testing.T) {
 			"--hook",
 			"--nocopy",
 			"--nocd",
+			"--relative",
 			"-d",
 			"-D",
 		}
