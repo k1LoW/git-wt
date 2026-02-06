@@ -157,7 +157,11 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 			return nil, nil
 		}
 		for _, wt := range worktrees {
-			if wt.Path == absPath {
+			wtPath, err := filepath.EvalSymlinks(wt.Path)
+			if err != nil {
+				continue
+			}
+			if wtPath == absPath {
 				return &wt, nil
 			}
 		}
