@@ -273,6 +273,36 @@ $ cd $(git-wt | fzf | awk '{print $1}')
 $ cd (git-wt | fzf | awk '{print $1}')
 ```
 
+#### fish (shell function)
+
+Wrap `git` so that `git wt` with no arguments launches fzf for interactive worktree selection, while all other commands pass through unchanged:
+
+``` fish
+# In ~/.config/fish/config.fish
+git wt --init fish | source
+
+# Wrap git to add fzf worktree selection for `git wt` (no args)
+functions -c git __git_wt_no_fzf
+function git --wraps git
+    if test (count $argv) -eq 1; and test "$argv[1]" = "wt"; and type -q fzf
+        set -l selection (command git-wt 2>/dev/null | fzf --header-lines=1)
+        if test $status -eq 0; and test -n "$selection"
+            set -l dir (echo $selection | awk '{if ($1 == "*") print $2; else print $1}')
+            if test -n "$dir"; and test -d "$dir"
+                cd $dir
+            end
+        end
+        return
+    end
+    __git_wt_no_fzf $argv
+end
+```
+
+- `functions -c git __git_wt_no_fzf` backs up the shell integration wrapper
+- Only intercepts `git wt` (no args); all other commands pass through
+- Falls back gracefully if fzf isn't installed
+- Escape/Ctrl-C cancels without changing directory
+
 ### tmux
 
 When creating a new worktree, open and switch to a new tmux window named `{repo}:{branch}`. The working directory will be the new worktree:
