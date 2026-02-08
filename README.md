@@ -275,12 +275,9 @@ $ cd (git-wt | fzf | awk '{print $1}')
 
 #### fish (shell function)
 
-Wrap `git` so that `git wt` with no arguments launches fzf for interactive worktree selection, while all other commands pass through unchanged:
+Alternatively, if you want `fzf` to be used whenever `git wt` called, add this to your `~/.config/fish/config.fish` file after the `git wt --init fish | source` line:
 
 ``` fish
-# In ~/.config/fish/config.fish
-git wt --init fish | source
-
 # Wrap git to add fzf worktree selection for `git wt` (no args)
 functions -c git __git_wt_no_fzf
 function git --wraps git
@@ -297,11 +294,6 @@ function git --wraps git
     __git_wt_no_fzf $argv
 end
 ```
-
-- `functions -c git __git_wt_no_fzf` backs up the shell integration wrapper
-- Only intercepts `git wt` (no args); all other commands pass through
-- Falls back gracefully if fzf isn't installed
-- Escape/Ctrl-C cancels without changing directory
 
 ### tmux
 
