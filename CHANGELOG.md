@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.19.1](https://github.com/k1LoW/git-wt/compare/v0.19.0...v0.19.1) - 2026-02-08
+### Other Changes
+- Fix fzf recipe to handle header row and current worktree marker by @dgrant in https://github.com/k1LoW/git-wt/pull/118
+
 ## [v0.19.0](https://github.com/k1LoW/git-wt/compare/v0.18.1...v0.19.0) - 2026-02-06
 ### New Features 🎉
 - feat: add `wt.relative` config and `--relative` flag to append subdirectory to worktree path by @k1LoW in https://github.com/k1LoW/git-wt/pull/113
