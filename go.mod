@@ -3,7 +3,7 @@ module github.com/k1LoW/git-wt
 go 1.25.7
 
 require (
-	github.com/go-git/go-git/v5 v5.16.4
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/k1LoW/exec v0.5.0
 	github.com/olekukonko/tablewriter v1.1.3
 	github.com/spf13/cobra v1.10.2
