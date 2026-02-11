@@ -470,7 +470,11 @@ func listWorktrees(ctx context.Context) error {
 		if wt.Path == currentPath {
 			marker = "*"
 		}
-		if err := table.Append([]string{marker, wt.Path, wt.Branch, wt.Head}); err != nil {
+		branch := wt.Branch
+		if wt.Bare {
+			branch = fmt.Sprintf("%s (bare)", branch)
+		}
+		if err := table.Append([]string{marker, wt.Path, branch, wt.Head}); err != nil {
 			return fmt.Errorf("failed to append row: %w", err)
 		}
 	}

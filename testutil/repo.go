@@ -62,6 +62,51 @@ func NewTestRepo(t testing.TB) *TestRepo { //nostyle:repetition
 	return r
 }
 
+// NewBareTestRepo creates a bare clone of a temporary git repository.
+// It first creates a normal repo with an initial commit, then clones it as bare.
+// Cleanup is automatically registered via t.Cleanup().
+func NewBareTestRepo(t testing.TB) *TestRepo { //nostyle:repetition
+	t.Helper()
+
+	// Create a source repo with an initial commit
+	srcRepo := NewTestRepo(t)
+	srcRepo.CreateFile("README.md", "# Test")
+	srcRepo.Commit("initial commit")
+
+	// Create a parent temp directory for the bare clone
+	parentDir, err := os.MkdirTemp("", "git-wt-bare-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp parent dir: %v", err)
+	}
+
+	parentDir, err = filepath.EvalSymlinks(parentDir)
+	if err != nil {
+		os.RemoveAll(parentDir)
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	bareDir := filepath.Join(parentDir, "bare-repo")
+
+	// Clone as bare
+	cmd := exec.Command("git", "clone", "--bare", srcRepo.Root, bareDir)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		os.RemoveAll(parentDir)
+		t.Fatalf("failed to clone bare repo: %v\noutput: %s", err, out)
+	}
+
+	r := &TestRepo{
+		t:    t,
+		Root: bareDir,
+	}
+
+	t.Cleanup(func() {
+		os.RemoveAll(parentDir)
+	})
+
+	return r
+}
+
 // Git executes a git command in the repository and returns stdout.
 // It calls t.Fatal on error.
 func (r *TestRepo) Git(args ...string) string {

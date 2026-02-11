@@ -35,6 +35,36 @@ func TestListWorktrees(t *testing.T) {
 	}
 }
 
+func TestListWorktrees_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	worktrees, err := ListWorktrees(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(worktrees) != 1 {
+		t.Fatalf("expected 1 worktree, got %d", len(worktrees))
+	}
+
+	wt := worktrees[0]
+
+	if !wt.Bare {
+		t.Error("expected Bare = true")
+	}
+	if wt.Path != repo.Root {
+		t.Errorf("expected path %q, got %q", repo.Root, wt.Path)
+	}
+	if wt.Branch == "" {
+		t.Error("bare worktree Branch should not be empty")
+	}
+	if wt.Head == "" {
+		t.Error("bare worktree Head should not be empty")
+	}
+}
+
 func TestListWorktrees_Multiple(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
@@ -85,6 +115,53 @@ func TestCurrentWorktree(t *testing.T) {
 
 	if path != repo.Root {
 		t.Errorf("CurrentWorktree() = %q, want %q", path, repo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestCurrentWorktree_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	path, err := CurrentWorktree(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != repo.Root {
+		t.Errorf("CurrentWorktree() = %q, want %q", path, repo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestFindWorktreeByBranchOrDir_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	// The bare repo has HEAD pointing to "main", but FindWorktreeByBranchOrDir
+	// should NOT match the bare entry — bare entries are not switchable worktrees.
+	wt, err := FindWorktreeByBranchOrDir(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt != nil {
+		t.Errorf("expected nil for bare-only repo, got path=%q", wt.Path)
+	}
+}
+
+func TestFindWorktreeByBranch_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	// The bare repo has HEAD pointing to "main", but FindWorktreeByBranch
+	// should NOT match the bare entry — bare entries are not switchable worktrees.
+	wt, err := FindWorktreeByBranch(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt != nil {
+		t.Errorf("expected nil for bare-only repo, got path=%q", wt.Path)
 	}
 }
 
@@ -201,6 +278,70 @@ func TestAddWorktreeWithNewBranch(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); os.IsNotExist(err) {
 		t.Error("README.md was not created in basedir")
+	}
+
+	// Verify branch was created
+	exists, err := LocalBranchExists(t.Context(), "new-branch")
+	if err != nil {
+		t.Fatalf("LocalBranchExists failed: %v", err)
+	}
+	if !exists {
+		t.Error("branch was not created")
+	}
+
+	// Verify it appears in worktree list
+	wt, err := FindWorktreeByBranch(t.Context(), "new-branch")
+	if err != nil {
+		t.Fatalf("FindWorktreeByBranch failed: %v", err)
+	}
+	if wt == nil {
+		t.Error("worktree not found after creation")
+	}
+}
+
+func TestAddWorktree_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	// Create a branch in the bare repo
+	repo.Git("branch", "existing-branch")
+
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-existing")
+	err := AddWorktree(t.Context(), wtPath, "existing-branch", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Verify worktree was created
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Error("worktree directory was not created")
+	}
+
+	// Verify it appears in worktree list
+	wt, err := FindWorktreeByBranch(t.Context(), "existing-branch")
+	if err != nil {
+		t.Fatalf("FindWorktreeByBranch failed: %v", err)
+	}
+	if wt == nil {
+		t.Error("worktree not found after creation")
+	}
+}
+
+func TestAddWorktreeWithNewBranch_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-new")
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "new-branch", "", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
+	}
+
+	// Verify worktree was created
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Error("worktree directory was not created")
 	}
 
 	// Verify branch was created

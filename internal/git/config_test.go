@@ -8,6 +8,14 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
+func TestMain(m *testing.M) {
+	// Prevent the user's global/system git config from leaking into tests.
+	// See: https://git-scm.com/docs/git-config#ENVIRONMENT (Git 2.32+)
+	os.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+	os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	os.Exit(m.Run())
+}
+
 func TestShowPrefix(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
@@ -124,6 +132,21 @@ func TestRepoRoot(t *testing.T) {
 	}
 }
 
+func TestRepoRoot_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	root, err := RepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if root != repo.Root {
+		t.Errorf("RepoRoot() = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+}
+
 func TestMainRepoRoot(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
@@ -158,6 +181,53 @@ func TestMainRepoRoot(t *testing.T) {
 
 	if root != repo.Root {
 		t.Errorf("MainRepoRoot() from subdir = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestMainRepoRoot_BareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	root, err := MainRepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if root != repo.Root {
+		t.Errorf("MainRepoRoot() = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestMainRepoRoot_WorktreeOfBareRepo(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	// Create a worktree from the bare repo
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-feature")
+	repo.Git("worktree", "add", "-b", "feature", wtPath)
+
+	// cd into the worktree (not the bare repo)
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatalf("failed to chdir to worktree: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore directory: %v", err)
+		}
+	})
+
+	// MainRepoRoot should return the bare repo root, not its parent
+	root, err := MainRepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if root != repo.Root {
+		t.Errorf("MainRepoRoot() from worktree of bare repo = %q, want %q", root, repo.Root) //nostyle:errorstrings
 	}
 }
 
@@ -418,6 +488,38 @@ func TestIsBaseDirConfigured(t *testing.T) {
 		}
 		if !configured {
 			t.Error("IsBaseDirConfigured() = false, want true")
+		}
+	})
+}
+
+func TestIsBareRepo(t *testing.T) {
+	t.Run("normal_repo", func(t *testing.T) {
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		t.Cleanup(repo.Chdir())
+
+		bare, err := IsBareRepo(t.Context())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if bare {
+			t.Error("IsBareRepo() = true, want false for normal repo")
+		}
+	})
+
+	t.Run("bare_repo", func(t *testing.T) {
+		repo := testutil.NewBareTestRepo(t)
+
+		t.Cleanup(repo.Chdir())
+
+		bare, err := IsBareRepo(t.Context())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !bare {
+			t.Error("IsBareRepo() = false, want true for bare repo")
 		}
 	})
 }

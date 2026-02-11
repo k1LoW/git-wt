@@ -72,7 +72,21 @@ func ShowPrefix(ctx context.Context) (string, error) {
 	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
 }
 
+// IsBareRepo returns true if the current repository is a bare repository.
+func IsBareRepo(ctx context.Context) (bool, error) {
+	cmd, err := gitCommand(ctx, "rev-parse", "--is-bare-repository")
+	if err != nil {
+		return false, err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) == "true", nil
+}
+
 // RepoRoot returns the root directory of the current git repository (or worktree).
+// For bare repositories, it falls back to MainRepoRoot since there is no working tree.
 func RepoRoot(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -80,6 +94,14 @@ func RepoRoot(ctx context.Context) (string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
+		// --show-toplevel fails in bare repositories (exit 128).
+		bare, bareErr := IsBareRepo(ctx)
+		if bareErr != nil {
+			return "", err
+		}
+		if bare {
+			return MainRepoRoot(ctx)
+		}
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
@@ -98,8 +120,14 @@ func MainRepoRoot(ctx context.Context) (string, error) {
 	}
 	gitCommonDir := strings.TrimSpace(string(out))
 
-	// The main repo root is the parent of the .git directory
-	return filepath.Dir(gitCommonDir), nil
+	// For non-bare repositories, git-common-dir is the .git directory,
+	// so the repo root is its parent.
+	// For bare repositories (even when accessed from a linked worktree),
+	// git-common-dir IS the repo root and does not end with "/.git".
+	if filepath.Base(gitCommonDir) == ".git" {
+		return filepath.Dir(gitCommonDir), nil
+	}
+	return gitCommonDir, nil
 }
 
 // RepoName returns the name of the current git repository (directory name).

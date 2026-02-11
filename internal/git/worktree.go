@@ -73,10 +73,56 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 		worktrees = append(worktrees, current)
 	}
 
+	// Populate Head and Branch for bare entries, since
+	// "git worktree list --porcelain" omits them for bare worktrees.
+	for i := range worktrees {
+		if worktrees[i].Bare && worktrees[i].Head == "" {
+			if head, err := resolveHead(ctx); err == nil {
+				worktrees[i].Head = head
+			}
+		}
+		if worktrees[i].Bare && worktrees[i].Branch == "" {
+			if branch, err := resolveHEADBranch(ctx); err == nil {
+				worktrees[i].Branch = branch
+			}
+		}
+	}
+
 	return worktrees, nil
 }
 
+// resolveHead returns the abbreviated HEAD commit hash.
+func resolveHead(ctx context.Context) (string, error) {
+	cmd, err := gitCommand(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	head := strings.TrimSpace(string(out))
+	if len(head) >= 7 {
+		return head[:7], nil
+	}
+	return head, nil
+}
+
+// resolveHEADBranch returns the branch name that HEAD points to.
+func resolveHEADBranch(ctx context.Context) (string, error) {
+	cmd, err := gitCommand(ctx, "symbolic-ref", "--short", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // CurrentWorktree returns the path of the current worktree.
+// For bare repositories, it falls back to MainRepoRoot since there is no working tree.
 func CurrentWorktree(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -84,6 +130,14 @@ func CurrentWorktree(ctx context.Context) (string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
+		// --show-toplevel fails in bare repositories (exit 128).
+		bare, bareErr := IsBareRepo(ctx)
+		if bareErr != nil {
+			return "", err
+		}
+		if bare {
+			return MainRepoRoot(ctx)
+		}
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
@@ -97,7 +151,7 @@ func FindWorktreeByBranch(ctx context.Context, branch string) (*Worktree, error)
 	}
 
 	for _, wt := range worktrees {
-		if wt.Branch == branch {
+		if !wt.Bare && wt.Branch == branch {
 			return &wt, nil
 		}
 	}
@@ -113,9 +167,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 		return nil, err
 	}
 
-	// First, try to find by branch name
+	// First, try to find by branch name (skip bare entries — they are not switchable worktrees)
 	for _, wt := range worktrees {
-		if wt.Branch != DetachedMarker && wt.Branch == query {
+		if !wt.Bare && wt.Branch != DetachedMarker && wt.Branch == query {
 			return &wt, nil
 		}
 	}
@@ -132,6 +186,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 
 	// Then, try to find by directory name (relative path from base dir)
 	for _, wt := range worktrees {
+		if wt.Bare {
+			continue
+		}
 		relPath, err := filepath.Rel(baseDir, wt.Path)
 		if err != nil {
 			continue
@@ -157,6 +214,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 			return nil, nil
 		}
 		for _, wt := range worktrees {
+			if wt.Bare {
+				continue
+			}
 			wtPath, err := filepath.EvalSymlinks(wt.Path)
 			if err != nil {
 				continue
@@ -189,10 +249,19 @@ func WorktreeDirName(ctx context.Context, wt *Worktree) (string, error) {
 
 // AddWorktree creates a new worktree for the given branch.
 func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
-	// Get source root before creating worktree
-	srcRoot, err := RepoRoot(ctx)
+	// Check if this is a bare repository (no working tree to copy from)
+	bare, err := IsBareRepo(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Get source root before creating worktree (only needed for non-bare repos)
+	var srcRoot string
+	if !bare {
+		srcRoot, err = RepoRoot(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure parent directory exists
@@ -216,12 +285,15 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 		return err
 	}
 
-	// Exclude basedir from copy to prevent circular copying
-	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
+	// Skip file copy for bare repositories (no working tree to copy from)
+	if !bare {
+		// Exclude basedir from copy to prevent circular copying
+		copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
 
-	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
-		return fmt.Errorf("failed to copy files: %w", err)
+		// Copy files to new worktree
+		if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
+			return fmt.Errorf("failed to copy files: %w", err)
+		}
 	}
 
 	return nil
@@ -230,10 +302,19 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.
 // If startPoint is specified, the new branch will be created from that commit/branch.
 func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint string, copyOpts CopyOptions) error {
-	// Get source root before creating worktree
-	srcRoot, err := RepoRoot(ctx)
+	// Check if this is a bare repository (no working tree to copy from)
+	bare, err := IsBareRepo(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Get source root before creating worktree (only needed for non-bare repos)
+	var srcRoot string
+	if !bare {
+		srcRoot, err = RepoRoot(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Ensure parent directory exists
@@ -263,12 +344,15 @@ func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint stri
 		return err
 	}
 
-	// Exclude basedir from copy to prevent circular copying
-	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
+	// Skip file copy for bare repositories (no working tree to copy from)
+	if !bare {
+		// Exclude basedir from copy to prevent circular copying
+		copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
 
-	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
-		return fmt.Errorf("failed to copy files: %w", err)
+		// Copy files to new worktree
+		if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
+			return fmt.Errorf("failed to copy files: %w", err)
+		}
 	}
 
 	return nil
