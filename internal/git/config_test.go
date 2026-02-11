@@ -8,6 +8,14 @@ import (
 	"github.com/k1LoW/git-wt/testutil"
 )
 
+func TestMain(m *testing.M) {
+	// Prevent the user's global/system git config from leaking into tests.
+	// See: https://git-scm.com/docs/git-config#ENVIRONMENT (Git 2.32+)
+	os.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+	os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	os.Exit(m.Run())
+}
+
 func TestShowPrefix(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")

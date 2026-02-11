@@ -17,6 +17,14 @@ import (
 	"github.com/k1LoW/exec"
 )
 
+func TestMain(m *testing.M) {
+	// Prevent the user's global/system git config from leaking into tests.
+	// See: https://git-scm.com/docs/git-config#ENVIRONMENT (Git 2.32+)
+	os.Setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+	os.Setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+	os.Exit(m.Run())
+}
+
 // buildBinary builds git-wt binary for testing and returns the path.
 func buildBinary(t *testing.T) string {
 	t.Helper()
