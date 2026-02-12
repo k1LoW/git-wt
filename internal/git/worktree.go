@@ -3,10 +3,13 @@ package git
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/k1LoW/exec"
 )
 
 // DetachedMarker is used to indicate a detached HEAD state.
@@ -109,6 +112,7 @@ func resolveHead(ctx context.Context, dir string) (string, error) {
 }
 
 // resolveHEADBranch returns the branch name that HEAD points to for the repository at dir.
+// Returns DetachedMarker when HEAD is detached (symbolic-ref exits with code 1).
 func resolveHEADBranch(ctx context.Context, dir string) (string, error) {
 	cmd, err := gitCommand(ctx, "-C", dir, "symbolic-ref", "--short", "HEAD")
 	if err != nil {
@@ -116,6 +120,11 @@ func resolveHEADBranch(ctx context.Context, dir string) (string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
+		// symbolic-ref returns exit code 1 when HEAD is detached.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return DetachedMarker, nil
+		}
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
@@ -133,7 +142,7 @@ func CurrentWorktree(ctx context.Context) (string, error) {
 		// --show-toplevel fails in bare repositories (exit 128).
 		bare, bareErr := IsBareRepo(ctx)
 		if bareErr != nil {
-			return "", err
+			return "", errors.Join(err, bareErr)
 		}
 		if bare {
 			return MainRepoRoot(ctx)

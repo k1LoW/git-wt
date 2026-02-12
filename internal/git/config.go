@@ -97,7 +97,7 @@ func RepoRoot(ctx context.Context) (string, error) {
 		// --show-toplevel fails in bare repositories (exit 128).
 		bare, bareErr := IsBareRepo(ctx)
 		if bareErr != nil {
-			return "", err
+			return "", errors.Join(err, bareErr)
 		}
 		if bare {
 			return MainRepoRoot(ctx)
@@ -124,12 +124,17 @@ func MainRepoRoot(ctx context.Context) (string, error) {
 	// so the repo root is its parent.
 	// For bare repositories (even when accessed from a linked worktree),
 	// git-common-dir IS the repo root.
-	// We distinguish them by checking if the git config marks the repo as bare.
-	configPath := filepath.Join(gitCommonDir, "config")
-	if configData, err := os.ReadFile(configPath); err == nil {
-		if strings.Contains(string(configData), "bare = true") {
-			return gitCommonDir, nil
-		}
+	// We ask git directly to avoid brittle string matching on config files.
+	cmd, err = gitCommand(ctx, "-C", gitCommonDir, "rev-parse", "--is-bare-repository")
+	if err != nil {
+		return "", err
+	}
+	bareOut, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(string(bareOut)) == "true" {
+		return gitCommonDir, nil
 	}
 	return filepath.Dir(gitCommonDir), nil
 }
