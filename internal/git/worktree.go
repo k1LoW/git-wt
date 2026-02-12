@@ -77,12 +77,12 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 	// "git worktree list --porcelain" omits them for bare worktrees.
 	for i := range worktrees {
 		if worktrees[i].Bare && worktrees[i].Head == "" {
-			if head, err := resolveHead(ctx); err == nil {
+			if head, err := resolveHead(ctx, worktrees[i].Path); err == nil {
 				worktrees[i].Head = head
 			}
 		}
 		if worktrees[i].Bare && worktrees[i].Branch == "" {
-			if branch, err := resolveHEADBranch(ctx); err == nil {
+			if branch, err := resolveHEADBranch(ctx, worktrees[i].Path); err == nil {
 				worktrees[i].Branch = branch
 			}
 		}
@@ -91,9 +91,9 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 	return worktrees, nil
 }
 
-// resolveHead returns the abbreviated HEAD commit hash.
-func resolveHead(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "HEAD")
+// resolveHead returns the abbreviated HEAD commit hash for the repository at dir.
+func resolveHead(ctx context.Context, dir string) (string, error) {
+	cmd, err := gitCommand(ctx, "-C", dir, "rev-parse", "HEAD")
 	if err != nil {
 		return "", err
 	}
@@ -108,9 +108,9 @@ func resolveHead(ctx context.Context) (string, error) {
 	return head, nil
 }
 
-// resolveHEADBranch returns the branch name that HEAD points to.
-func resolveHEADBranch(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "symbolic-ref", "--short", "HEAD")
+// resolveHEADBranch returns the branch name that HEAD points to for the repository at dir.
+func resolveHEADBranch(ctx context.Context, dir string) (string, error) {
+	cmd, err := gitCommand(ctx, "-C", dir, "symbolic-ref", "--short", "HEAD")
 	if err != nil {
 		return "", err
 	}

@@ -123,11 +123,15 @@ func MainRepoRoot(ctx context.Context) (string, error) {
 	// For non-bare repositories, git-common-dir is the .git directory,
 	// so the repo root is its parent.
 	// For bare repositories (even when accessed from a linked worktree),
-	// git-common-dir IS the repo root and does not end with "/.git".
-	if filepath.Base(gitCommonDir) == ".git" {
-		return filepath.Dir(gitCommonDir), nil
+	// git-common-dir IS the repo root.
+	// We distinguish them by checking if the git config marks the repo as bare.
+	configPath := filepath.Join(gitCommonDir, "config")
+	if configData, err := os.ReadFile(configPath); err == nil {
+		if strings.Contains(string(configData), "bare = true") {
+			return gitCommonDir, nil
+		}
 	}
-	return gitCommonDir, nil
+	return filepath.Dir(gitCommonDir), nil
 }
 
 // RepoName returns the name of the current git repository (directory name).

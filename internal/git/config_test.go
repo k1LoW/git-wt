@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/k1LoW/exec"
 	"github.com/k1LoW/git-wt/testutil"
 )
 
@@ -228,6 +229,51 @@ func TestMainRepoRoot_WorktreeOfBareRepo(t *testing.T) {
 
 	if root != repo.Root {
 		t.Errorf("MainRepoRoot() from worktree of bare repo = %q, want %q", root, repo.Root) //nostyle:errorstrings
+	}
+}
+
+// TestMainRepoRoot_BareRepoNamedDotGit verifies that MainRepoRoot correctly
+// handles a bare repository whose directory name is ".git". Without proper
+// detection, the ".git" basename would be misidentified as a non-bare repo's
+// .git directory, causing MainRepoRoot to return its parent instead.
+func TestMainRepoRoot_BareRepoNamedDotGit(t *testing.T) {
+	// Create a source repo with an initial commit
+	srcRepo := testutil.NewTestRepo(t)
+	srcRepo.CreateFile("README.md", "# Test")
+	srcRepo.Commit("initial commit")
+
+	// Clone as bare into a directory named ".git"
+	parentDir := t.TempDir()
+	parentDir, err := filepath.EvalSymlinks(parentDir)
+	if err != nil {
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+	bareDir := filepath.Join(parentDir, ".git")
+	cmd := exec.Command("git", "clone", "--bare", srcRepo.Root, bareDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to clone bare repo: %v\noutput: %s", err, out)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(bareDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore directory: %v", err)
+		}
+	})
+
+	root, err := MainRepoRoot(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if root != bareDir {
+		t.Errorf("MainRepoRoot() = %q, want %q (should return bare repo root, not parent)", root, bareDir) //nostyle:errorstrings
 	}
 }
 

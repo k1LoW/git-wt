@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/k1LoW/exec"
 	"github.com/k1LoW/git-wt/testutil"
 )
 
@@ -62,6 +63,68 @@ func TestListWorktrees_BareRepo(t *testing.T) {
 	}
 	if wt.Head == "" {
 		t.Error("bare worktree Head should not be empty")
+	}
+}
+
+// TestListWorktrees_BareRepo_FromLinkedWorktree verifies that ListWorktrees
+// resolves the bare entry's Head and Branch from the bare repo itself,
+// not from the current working directory (which may be a linked worktree
+// with a different HEAD).
+func TestListWorktrees_BareRepo_FromLinkedWorktree(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	// Record the bare repo's HEAD
+	bareHead := repo.Git("rev-parse", "--short=7", "HEAD")
+
+	// Create a linked worktree with a new branch
+	wtPath := filepath.Join(repo.ParentDir(), "wt-feature")
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "feature", "", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
+	}
+
+	// Make a commit in the linked worktree so its HEAD diverges from the bare repo's
+	if err := os.WriteFile(filepath.Join(wtPath, "new.txt"), []byte("new"), 0600); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	cmd := exec.Command("git", "-C", wtPath, "add", "-A")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add failed: %v\n%s", err, out)
+	}
+	cmd = exec.Command("git", "-C", wtPath,
+		"-c", "user.email=test@example.com", "-c", "user.name=Test",
+		"commit", "-m", "worktree commit")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %v\n%s", err, out)
+	}
+
+	// cd into the linked worktree
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatalf("failed to chdir to worktree: %v", err)
+	}
+
+	worktrees, err := ListWorktrees(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var bareEntry *Worktree
+	for _, wt := range worktrees {
+		if wt.Bare {
+			bareEntry = &wt
+			break
+		}
+	}
+	if bareEntry == nil {
+		t.Fatal("bare entry not found")
+	}
+	if bareEntry.Branch != "main" {
+		t.Errorf("bare entry Branch = %q, want %q (should reflect bare repo, not linked worktree)", bareEntry.Branch, "main")
+	}
+	if bareEntry.Head != bareHead {
+		t.Errorf("bare entry Head = %q, want %q (should reflect bare repo, not linked worktree)", bareEntry.Head, bareHead)
 	}
 }
 
