@@ -363,6 +363,36 @@ func TestAddWorktreeWithNewBranch_BareRepo(t *testing.T) {
 	}
 }
 
+func TestFindWorktreeByBranchOrDir_BareRepo_DotPath(t *testing.T) {
+	repo := testutil.NewBareTestRepo(t)
+
+	t.Cleanup(repo.Chdir())
+
+	// Create a linked worktree from the bare repo
+	wtPath := filepath.Join(repo.ParentDir(), "wt-feature")
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "feature", "", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
+	}
+
+	// Change into the linked worktree directory
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatalf("failed to chdir to worktree: %v", err)
+	}
+
+	// FindWorktreeByBranchOrDir with "." should find the current worktree
+	wt, err := FindWorktreeByBranchOrDir(t.Context(), ".")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wt == nil {
+		t.Fatal("expected to find worktree for \".\", got nil")
+	}
+	if wt.Branch != "feature" {
+		t.Errorf("expected branch 'feature', got %q", wt.Branch)
+	}
+}
+
 func TestRemoveWorktree(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")

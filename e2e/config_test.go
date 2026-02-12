@@ -491,9 +491,6 @@ pwd
 		// Set wt.nocd in config
 		repo.Git("config", "wt.nocd", "true")
 
-		restore := repo.Chdir()
-		defer restore()
-
 		out, err := runGitWt(t, binPath, repo.Root, "--init", "bash")
 		if err != nil {
 			t.Fatalf("git-wt --init bash failed: %v\noutput: %s", err, out)

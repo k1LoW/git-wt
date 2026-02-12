@@ -5,10 +5,12 @@
 package e2e
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/k1LoW/exec"
 	"github.com/k1LoW/git-wt/testutil"
 )
 
@@ -178,6 +180,41 @@ func TestE2E_BareRepo_DeleteWorktree(t *testing.T) {
 
 		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
 			t.Error("worktree should have been force deleted")
+		}
+	})
+
+	t.Run("delete_with_dot_path", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewBareTestRepo(t)
+
+		out, err := runGitWt(t, binPath, repo.Root, "dot-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+		wtPath := worktreePath(out)
+
+		// Run from inside the worktree with "." as the target
+		cmd := exec.Command(binPath, "-D", ".")
+		cmd.Dir = wtPath
+		cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git-wt -D . failed: %v\nstderr: %s", err, stderrBuf.String())
+		}
+
+		// Verify worktree was deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
+		}
+
+		// Verify last line is bare repo path (for shell integration)
+		stdout := strings.TrimSpace(stdoutBuf.String())
+		lines := strings.Split(stdout, "\n")
+		lastLine := lines[len(lines)-1]
+		if lastLine != repo.Root {
+			t.Errorf("last line should be bare repo path %q, got %q", repo.Root, lastLine)
 		}
 	})
 }

@@ -406,10 +406,8 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Errorf("worktree was not created at %s", wtPath)
 		}
 
-		restore := repo.Chdir()
-		defer restore()
-
 		cmd := exec.Command("git", "branch", "--list", "existing-branch")
+		cmd.Dir = repo.Root
 		branchOut, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("git branch --list failed: %v", err)
