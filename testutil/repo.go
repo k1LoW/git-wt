@@ -139,3 +139,139 @@ func (r *TestRepo) Path(relPath string) string {
 func (r *TestRepo) ParentDir() string {
 	return filepath.Dir(r.Root)
 }
+
+// BareTestRepo represents a temporary bare git repository for testing.
+// A bare repository has no working tree — it contains only the .git internals
+// (objects, refs, HEAD, etc.) directly in its root directory.
+// `git worktree list --porcelain` outputs a "bare" line for the first entry
+// of a bare repository, which is how git-wt detects bare repos.
+type BareTestRepo struct {
+	t    testing.TB
+	Root string // Path to the bare repository (e.g., /tmp/xxx/repo.git)
+}
+
+// NewBareTestRepo creates a new temporary bare git repository with an initial commit.
+//
+// Because bare repositories have no working tree, we cannot commit directly.
+// Instead, this helper:
+//   1. Creates a bare repo with `git init --bare`
+//   2. Creates a temporary normal repo, makes an initial commit
+//   3. Pushes the commit to the bare repo so it has at least one ref
+//      (required for `git worktree add` to work)
+//   4. Cleans up the temporary normal repo (the bare repo persists for the test)
+//
+// Cleanup of the bare repo is automatically registered via t.Cleanup().
+func NewBareTestRepo(t testing.TB) *BareTestRepo { //nostyle:repetition
+	t.Helper()
+
+	// Create a parent temp directory to contain both the bare repo and potential worktrees
+	parentDir, err := os.MkdirTemp("", "git-wt-bare-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp parent dir: %v", err)
+	}
+
+	// Resolve symlinks (macOS /var -> /private/var issue)
+	parentDir, err = filepath.EvalSymlinks(parentDir)
+	if err != nil {
+		os.RemoveAll(parentDir)
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	bareDir := filepath.Join(parentDir, "repo.git")
+
+	t.Cleanup(func() {
+		os.RemoveAll(parentDir)
+	})
+
+	// 1. Initialize bare repository
+	cmd := newGitCmd(t, "", "init", "--bare", bareDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %v\noutput: %s", err, out)
+	}
+
+	// Configure bare repo to accept pushes
+	cmd = newGitCmd(t, bareDir, "config", "receive.denyCurrentBranch", "ignore")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git config failed: %v\noutput: %s", err, out)
+	}
+
+	// 2. Create a temporary normal repo to make the initial commit
+	tmpCloneDir := filepath.Join(parentDir, "tmp-clone")
+	cmd = newGitCmd(t, "", "clone", bareDir, tmpCloneDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git clone failed: %v\noutput: %s", err, out)
+	}
+
+	// Configure the clone
+	for _, args := range [][]string{
+		{"config", "user.email", "test@example.com"},
+		{"config", "user.name", "Test User"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		cmd = newGitCmd(t, tmpCloneDir, args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v\noutput: %s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	// 3. Create initial commit and push to bare repo
+	readmePath := filepath.Join(tmpCloneDir, "README.md")
+	if err := os.WriteFile(readmePath, []byte("# Test\n"), 0600); err != nil {
+		t.Fatalf("failed to create README.md: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"checkout", "-b", "main"},
+		{"add", "-A"},
+		{"commit", "-m", "initial commit"},
+		{"push", "origin", "main"},
+	} {
+		cmd = newGitCmd(t, tmpCloneDir, args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v\noutput: %s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	// Set HEAD to point to main branch in the bare repo
+	cmd = newGitCmd(t, bareDir, "symbolic-ref", "HEAD", "refs/heads/main")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git symbolic-ref failed: %v\noutput: %s", err, out)
+	}
+
+	// 4. Remove the temporary clone (no longer needed)
+	os.RemoveAll(tmpCloneDir)
+
+	return &BareTestRepo{
+		t:    t,
+		Root: bareDir,
+	}
+}
+
+// Git executes a git command in the bare repository and returns stdout.
+// It calls t.Fatal on error.
+func (r *BareTestRepo) Git(args ...string) string {
+	r.t.Helper()
+	cmd := newGitCmd(r.t, r.Root, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		r.t.Fatalf("git %s failed: %v\noutput: %s", strings.Join(args, " "), err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// ParentDir returns the parent directory of the bare repository.
+// This is useful for worktree operations that create directories outside the repo.
+func (r *BareTestRepo) ParentDir() string {
+	return filepath.Dir(r.Root)
+}
+
+// newGitCmd creates a git command with the given arguments.
+// If dir is non-empty, the command runs in that directory.
+func newGitCmd(t testing.TB, dir string, args ...string) *exec.Cmd {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	return cmd
+}

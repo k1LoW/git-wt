@@ -70,6 +70,9 @@ Note: The default branch (e.g., main, master) is protected from accidental delet
       - Without worktree: deletion is blocked entirely.
       Use --allow-delete-default to override and delete the branch.
 
+Note: Bare repositories are not currently supported.
+      See https://github.com/k1LoW/git-wt/issues/130 for details.
+
 Shell Integration:
   Add the following to your shell config to enable worktree switching and completion:
 
@@ -192,17 +195,30 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// No arguments: list worktrees
+	// Guard: bare repositories are not supported for list operation.
+	// Remove this guard when bare list support is implemented.
 	if len(args) == 0 {
+		if err := git.AssertNotBareRepository(ctx); err != nil {
+			return err
+		}
 		return listWorktrees(ctx)
 	}
 
 	// Handle delete flags (multiple arguments allowed)
+	// Guard: bare repositories are not supported for delete operation.
+	// Remove this guard when bare delete support is implemented.
 	if forceDeleteFlag {
+		if err := git.AssertNotBareRepository(ctx); err != nil {
+			return err
+		}
 		// Remove duplicates while preserving order
 		args = uniqueArgs(args)
 		return deleteWorktrees(ctx, args, true)
 	}
 	if deleteFlag {
+		if err := git.AssertNotBareRepository(ctx); err != nil {
+			return err
+		}
 		// Remove duplicates while preserving order
 		args = uniqueArgs(args)
 		return deleteWorktrees(ctx, args, false)
@@ -212,6 +228,12 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	// git wt <branch> [<start-point>]
 	if len(args) > 2 {
 		return fmt.Errorf("too many arguments: expected <branch> [<start-point>], got %d arguments", len(args))
+	}
+
+	// Guard: bare repositories are not supported for add/switch operation.
+	// Remove this guard when bare add/switch support is implemented.
+	if err := git.AssertNotBareRepository(ctx); err != nil {
+		return err
 	}
 
 	branch := args[0]
