@@ -194,6 +194,15 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return runInit(initShell, nocd)
 	}
 
+	// Detect repo context once and thread it through context.
+	// Subsequent calls to DetectRepoContext (via AssertNotBareRepository etc.)
+	// will reuse the cached value instead of spawning git processes again.
+	rc, err := git.DetectRepoContext(ctx)
+	if err != nil {
+		return err
+	}
+	ctx = git.WithRepoContext(ctx, rc)
+
 	// No arguments: list worktrees
 	// Guard: bare repositories are not supported for list operation.
 	// Remove this guard when bare list support is implemented.

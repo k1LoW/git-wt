@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -16,8 +17,30 @@ import (
 //	{Bare: true,  Worktree: false} — bare repository root (no working tree)
 //	{Bare: true,  Worktree: true}  — linked worktree created from a bare repository
 type RepoContext struct {
-	Bare     bool // true if the main repository is bare
-	Worktree bool // true if running inside a linked worktree (not the main working tree)
+	Bare     bool   // true if the main repository is bare
+	Worktree bool   // true if running inside a linked worktree (not the main working tree)
+	Dir      string // working directory at detection time (used for cache invalidation)
+}
+
+type repoContextKey struct{}
+
+// WithRepoContext stores a RepoContext in the given context for later retrieval.
+func WithRepoContext(ctx context.Context, rc RepoContext) context.Context {
+	return context.WithValue(ctx, repoContextKey{}, &rc)
+}
+
+// RepoContextFrom retrieves a cached RepoContext from ctx.
+// It returns nil if no value is stored or if the current working directory
+// differs from the directory recorded at detection time.
+func RepoContextFrom(ctx context.Context) *RepoContext {
+	rc, ok := ctx.Value(repoContextKey{}).(*RepoContext)
+	if !ok {
+		return nil
+	}
+	if cwd, err := os.Getwd(); err != nil || cwd != rc.Dir {
+		return nil
+	}
+	return rc
 }
 
 // ErrBareRepository is a sentinel error returned when a bare repository is
@@ -48,6 +71,10 @@ var ErrBareRepository = errors.New(
 //   - Non-bare: `--show-toplevel` always succeeds. If the resolved path differs
 //     from worktrees[0].Path, we are in a linked worktree.
 func DetectRepoContext(ctx context.Context) (RepoContext, error) {
+	if cached := RepoContextFrom(ctx); cached != nil {
+		return *cached, nil
+	}
+
 	worktrees, err := ListWorktrees(ctx)
 	if err != nil {
 		return RepoContext{}, err
@@ -83,6 +110,10 @@ func DetectRepoContext(ctx context.Context) (RepoContext, error) {
 				rc.Worktree = true
 			}
 		}
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		rc.Dir = cwd
 	}
 
 	return rc, nil

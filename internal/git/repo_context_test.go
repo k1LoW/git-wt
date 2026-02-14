@@ -250,3 +250,83 @@ func TestAssertNotBareRepository_BareRepo(t *testing.T) {
 		t.Errorf("expected ErrBareRepository, got: %v", err)
 	}
 }
+
+func TestWithRepoContext_CacheHit(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+
+	rc := RepoContext{Bare: false, Worktree: true, Dir: cwd}
+	ctx := WithRepoContext(t.Context(), rc)
+
+	got := RepoContextFrom(ctx)
+	if got == nil {
+		t.Fatal("RepoContextFrom returned nil, expected cached RepoContext")
+	}
+	if got.Bare != rc.Bare {
+		t.Errorf("bare: got %v, want %v", got.Bare, rc.Bare)
+	}
+	if got.Worktree != rc.Worktree {
+		t.Errorf("worktree: got %v, want %v", got.Worktree, rc.Worktree)
+	}
+	if got.Dir != rc.Dir {
+		t.Errorf("dir: got %q, want %q", got.Dir, rc.Dir)
+	}
+}
+
+func TestRepoContextFrom_CwdMismatch(t *testing.T) {
+	rc := RepoContext{Bare: false, Worktree: false, Dir: "/nonexistent/path"}
+	ctx := WithRepoContext(t.Context(), rc)
+
+	got := RepoContextFrom(ctx)
+	if got != nil {
+		t.Errorf("repoContextFrom should return nil when cwd differs from Dir, got %+v", got)
+	}
+}
+
+func TestRepoContextFrom_NoContext(t *testing.T) {
+	got := RepoContextFrom(t.Context())
+	if got != nil {
+		t.Errorf("repoContextFrom should return nil for plain context, got %+v", got)
+	}
+}
+
+func TestDetectRepoContext_UsesCache(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+
+	// Pre-populate context with a known RepoContext
+	cached := RepoContext{Bare: true, Worktree: true, Dir: cwd}
+	ctx := WithRepoContext(t.Context(), cached)
+
+	// DetectRepoContext should return the cached value without running git
+	rc, err := DetectRepoContext(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The cached value has Bare=true, but the actual repo is not bare.
+	// If caching works, we get the cached value back.
+	if !rc.Bare {
+		t.Error("expected cached Bare=true, got false (cache was not used)")
+	}
+	if !rc.Worktree {
+		t.Error("expected cached Worktree=true, got false (cache was not used)")
+	}
+}
