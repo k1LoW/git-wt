@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.21.1](https://github.com/k1LoW/git-wt/compare/v0.21.0...v0.21.1) - 2026-02-14
+### Fix bug 🐛
+- fix: run git from mainRoot only if we deleted the current worktree by @yoichi in https://github.com/k1LoW/git-wt/pull/137
+
 ## [v0.21.0](https://github.com/k1LoW/git-wt/compare/v0.20.0...v0.21.0) - 2026-02-14
 ### New Features 🎉
 - feat: detect bare repositories and model 4-state RepoContext by @usadamasa in https://github.com/k1LoW/git-wt/pull/136
