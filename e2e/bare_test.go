@@ -10,7 +10,7 @@
 //   `git worktree list --porcelain` outputs a "bare" line for the first entry
 //   of a bare repository. This flag is present regardless of whether the command
 //   is run from the bare repo itself or from one of its worktrees.
-//   See internal/git/bare.go for the detection implementation.
+//   See internal/git/repo_context.go for the detection implementation.
 package e2e
 
 import (
