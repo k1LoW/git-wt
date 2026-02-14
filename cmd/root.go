@@ -559,6 +559,10 @@ func deleteWorktrees(ctx context.Context, branches []string, force bool) error {
 			// Let git branch -d/-D handle the merge check
 			// If we deleted the current worktree, run git from mainRoot since cwd no longer exists
 			if branchExists {
+				dir := ""
+				if needCdToMain {
+					dir = mainRoot
+				}
 				if isDefault && !allowDeleteDefault {
 					// Default branch is protected - only delete worktree
 					if wtDir == wt.Branch {
@@ -566,7 +570,7 @@ func deleteWorktrees(ctx context.Context, branches []string, force bool) error {
 					} else {
 						fmt.Printf("Deleted worktree %q (branch %q is default, not deleted)\n", wtDir, wt.Branch)
 					}
-				} else if err := git.DeleteBranchInDir(ctx, wt.Branch, force, mainRoot); err != nil {
+				} else if err := git.DeleteBranchInDir(ctx, wt.Branch, force, dir); err != nil {
 					// Treat as non-fatal since worktree removal succeeded
 					if wtDir == wt.Branch {
 						fmt.Printf("Deleted worktree, but failed to delete branch %q (use -D to force)\n", wt.Branch)
