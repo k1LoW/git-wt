@@ -28,7 +28,7 @@ func TestCopyFilesToWorktree_Ignored(t *testing.T) {
 	defer restore()
 
 	opts := CopyOptions{CopyIgnored: true}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestCopyFilesToWorktree_Untracked(t *testing.T) {
 	defer restore()
 
 	opts := CopyOptions{CopyUntracked: true}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestCopyFilesToWorktree_Modified(t *testing.T) {
 	defer restore()
 
 	opts := CopyOptions{CopyModified: true}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestCopyFilesToWorktree_NoOptions(t *testing.T) {
 
 	// No copy options enabled
 	opts := CopyOptions{}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestCopyFilesToWorktree_Subdirectory(t *testing.T) {
 	defer restore()
 
 	opts := CopyOptions{CopyIgnored: true}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestCopyFilesToWorktree_NoCopy(t *testing.T) {
 		CopyIgnored: true,
 		NoCopy:      []string{"*.log", "vendor/"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestCopyFilesToWorktree_NoCopy_GitignorePatterns(t *testing.T) {
 		CopyIgnored: true,
 		NoCopy:      []string{"build/"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestCopyFilesToWorktree_Copy(t *testing.T) {
 		CopyIgnored: false,
 		Copy:        []string{"*.code-workspace"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestCopyFilesToWorktree_Copy_WithNoCopy(t *testing.T) {
 		Copy:        []string{"*.code-workspace"},
 		NoCopy:      []string{"other.code-workspace"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestCopyFilesToWorktree_Copy_MultiplePatterns(t *testing.T) {
 		CopyIgnored: false,
 		Copy:        []string{"*.code-workspace", ".vscode/"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestCopyFilesToWorktree_Copy_WithCopyIgnored(t *testing.T) {
 		CopyIgnored: true,
 		Copy:        []string{"*.code-workspace"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestCopyFilesToWorktree_Copy_MatchesUntrackedFiles(t *testing.T) {
 		CopyIgnored: false,
 		Copy:        []string{"untracked.txt"},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}
@@ -582,7 +582,7 @@ func TestCopyFilesToWorktree_ExcludeDirs(t *testing.T) {
 		CopyIgnored: true,
 		ExcludeDirs: []string{filepath.Join(repo.Root, ".worktrees")},
 	}
-	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts)
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
 	if err != nil {
 		t.Fatalf("CopyFilesToWorktree failed: %v", err)
 	}

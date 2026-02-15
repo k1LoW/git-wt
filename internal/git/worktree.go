@@ -235,7 +235,7 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
 
 	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
+	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts, os.Stderr); err != nil {
 		return fmt.Errorf("failed to copy files: %w", err)
 	}
 
@@ -282,7 +282,7 @@ func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint stri
 	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
 
 	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts); err != nil {
+	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts, os.Stderr); err != nil {
 		return fmt.Errorf("failed to copy files: %w", err)
 	}
 
