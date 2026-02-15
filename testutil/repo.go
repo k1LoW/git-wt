@@ -247,6 +247,81 @@ func NewBareTestRepo(t testing.TB) *BareTestRepo { //nostyle:repetition
 	}
 }
 
+// NewDotGitBareTestRepo creates a bare repository where git-common-dir
+// ends with ".git" (e.g., /tmp/xxx/repo/.git).
+//
+// This reproduces a layout created by `git init && git config core.bare true`
+// or by cloning into a directory without the .git suffix, where the bare
+// repo contents live inside a .git subdirectory. The filepath.Base heuristic
+// alone cannot detect this as bare.
+func NewDotGitBareTestRepo(t testing.TB) *BareTestRepo { //nostyle:repetition
+	t.Helper()
+
+	parentDir, err := os.MkdirTemp("", "git-wt-dotgit-bare-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp parent dir: %v", err)
+	}
+	parentDir, err = filepath.EvalSymlinks(parentDir)
+	if err != nil {
+		os.RemoveAll(parentDir)
+		t.Fatalf("failed to resolve symlinks: %v", err)
+	}
+
+	t.Cleanup(func() {
+		os.RemoveAll(parentDir)
+	})
+
+	// Create a normal repo, then convert to bare by setting core.bare = true.
+	// This produces a layout where git-common-dir is repo/.git (ends with ".git").
+	repoDir := filepath.Join(parentDir, "repo")
+
+	cmd := newGitCmd(t, "", "init", repoDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init failed: %v\noutput: %s", err, out)
+	}
+
+	for _, args := range [][]string{
+		{"config", "user.email", "test@example.com"},
+		{"config", "user.name", "Test User"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		cmd = newGitCmd(t, repoDir, args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v\noutput: %s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	readmePath := filepath.Join(repoDir, "README.md")
+	if err := os.WriteFile(readmePath, []byte("# Test\n"), 0600); err != nil {
+		t.Fatalf("failed to create README.md: %v", err)
+	}
+
+	for _, args := range [][]string{
+		{"checkout", "-b", "main"},
+		{"add", "-A"},
+		{"commit", "-m", "initial commit"},
+	} {
+		cmd = newGitCmd(t, repoDir, args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v\noutput: %s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	// Convert to bare: set core.bare = true
+	cmd = newGitCmd(t, repoDir, "config", "core.bare", "true")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git config core.bare true failed: %v\noutput: %s", err, out)
+	}
+
+	// The bare repo is now at repoDir, but git operations should use
+	// the .git subdirectory as the GIT_DIR.
+	// We set Root to repoDir because that's where users would cd to.
+	return &BareTestRepo{
+		t:    t,
+		Root: repoDir,
+	}
+}
+
 // Git executes a git command in the bare repository and returns stdout.
 // It calls t.Fatal on error.
 func (r *BareTestRepo) Git(args ...string) string {

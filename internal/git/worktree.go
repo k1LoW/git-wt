@@ -76,6 +76,21 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 	return worktrees, nil
 }
 
+// CurrentLocation returns the path that identifies the current position
+// in the worktree list.
+//   - bare root: returns MainRepoRoot() (bare repo directory path)
+//   - worktree or normal repo: returns CurrentWorktree() (--show-toplevel)
+func CurrentLocation(ctx context.Context) (string, error) {
+	isBareRoot, err := IsBareRoot(ctx)
+	if err != nil {
+		return "", err
+	}
+	if isBareRoot {
+		return MainRepoRoot(ctx)
+	}
+	return CurrentWorktree(ctx)
+}
+
 // CurrentWorktree returns the path of the current worktree.
 func CurrentWorktree(ctx context.Context) (string, error) {
 	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")

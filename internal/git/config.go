@@ -57,60 +57,6 @@ func GitConfig(ctx context.Context, key string) ([]string, error) { //nolint:rev
 	return strings.Split(trimmed, "\n"), nil
 }
 
-// ShowPrefix returns the path prefix of the current directory relative to the repository root.
-// It runs "git rev-parse --show-prefix" and strips the trailing slash.
-// Returns an empty string when at the repository root.
-func ShowPrefix(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "--show-prefix")
-	if err != nil {
-		return "", err
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
-}
-
-// RepoRoot returns the root directory of the current git repository (or worktree).
-func RepoRoot(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return "", err
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-// MainRepoRoot returns the root directory of the main git repository.
-// Unlike RepoRoot, this returns the main repository root even when called from a worktree.
-func MainRepoRoot(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
-	if err != nil {
-		return "", err
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	gitCommonDir := strings.TrimSpace(string(out))
-
-	// The main repo root is the parent of the .git directory
-	return filepath.Dir(gitCommonDir), nil
-}
-
-// RepoName returns the name of the current git repository (directory name).
-func RepoName(ctx context.Context) (string, error) {
-	root, err := MainRepoRoot(ctx)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Base(root), nil
-}
-
 // LoadConfig loads configuration from git config with default values.
 func LoadConfig(ctx context.Context) (Config, error) {
 	cfg := Config{}

@@ -204,12 +204,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	ctx = git.WithRepoContext(ctx, rc)
 
 	// No arguments: list worktrees
-	// Guard: bare repositories are not supported for list operation.
-	// Remove this guard when bare list support is implemented.
 	if len(args) == 0 {
-		if err := git.AssertNotBareRepository(ctx); err != nil {
-			return err
-		}
 		return listWorktrees(ctx)
 	}
 
@@ -459,9 +454,9 @@ func listWorktrees(ctx context.Context) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	currentPath, err := git.CurrentWorktree(ctx)
+	currentPath, err := git.CurrentLocation(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get current worktree: %w", err)
+		return fmt.Errorf("failed to get current location: %w", err)
 	}
 
 	if jsonFlag {
@@ -501,7 +496,11 @@ func listWorktrees(ctx context.Context) error {
 		if wt.Path == currentPath {
 			marker = "*"
 		}
-		if err := table.Append([]string{marker, wt.Path, wt.Branch, wt.Head}); err != nil {
+		branch := wt.Branch
+		if wt.Bare {
+			branch = "(bare)"
+		}
+		if err := table.Append([]string{marker, wt.Path, branch, wt.Head}); err != nil {
 			return fmt.Errorf("failed to append row: %w", err)
 		}
 	}
