@@ -88,6 +88,137 @@ func TestCurrentWorktree(t *testing.T) {
 	}
 }
 
+func TestCurrentLocation_NormalRepo(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	path, err := CurrentLocation(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != repo.Root {
+		t.Errorf("CurrentLocation() = %q, want %q", path, repo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestCurrentLocation_NormalWorktree(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	wtPath := filepath.Join(repo.ParentDir(), "wt-feature")
+	repo.Git("worktree", "add", "-b", "feature", wtPath)
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore cwd: %v", err)
+		}
+	}()
+
+	path, err := CurrentLocation(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != wtPath {
+		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath) //nostyle:errorstrings
+	}
+}
+
+func TestCurrentLocation_BareRoot(t *testing.T) {
+	bareRepo := testutil.NewBareTestRepo(t)
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(bareRepo.Root); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore cwd: %v", err)
+		}
+	}()
+
+	path, err := CurrentLocation(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != bareRepo.Root {
+		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestCurrentLocation_CoreBareTrueRoot(t *testing.T) {
+	bareRepo := testutil.NewDotGitBareTestRepo(t)
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(bareRepo.Root); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore cwd: %v", err)
+		}
+	}()
+
+	path, err := CurrentLocation(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != bareRepo.Root {
+		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root) //nostyle:errorstrings
+	}
+}
+
+func TestCurrentLocation_BareWorktree(t *testing.T) {
+	bareRepo := testutil.NewBareTestRepo(t)
+
+	wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
+	bareRepo.Git("worktree", "add", wtPath, "main")
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(wtPath); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore cwd: %v", err)
+		}
+	}()
+
+	path, err := CurrentLocation(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if path != wtPath {
+		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath) //nostyle:errorstrings
+	}
+}
+
 func TestFindWorktreeByBranch(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
