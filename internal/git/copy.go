@@ -2,6 +2,8 @@ package git
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -19,7 +21,8 @@ type CopyOptions struct {
 }
 
 // CopyFilesToWorktree copies files to the new worktree based on options.
-func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts CopyOptions) error {
+// If w is non-nil, warnings about files that fail to copy are written to it.
+func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts CopyOptions, warn io.Writer) error {
 	var files []string
 
 	if opts.CopyIgnored {
@@ -102,7 +105,9 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 		dst := filepath.Join(dstRoot, file)
 
 		if err := copyFile(src, dst); err != nil {
-			// Skip files that fail to copy (e.g., permission issues)
+			if warn != nil {
+				fmt.Fprintf(warn, "warning: failed to copy %s: %v\n", file, err)
+			}
 			continue
 		}
 	}
