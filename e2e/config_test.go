@@ -3,6 +3,7 @@
 //   - TestE2E_Basedir: basedir tests (config, flag)
 //   - TestE2E_Nocd: nocd tests (config, config_with_init, create_config)
 //   - TestE2E_Hooks: hook tests (flag, config, multiple, not_run_on_existing, flag_overrides_config, failure, output_to_stderr)
+//   - TestE2E_DeleteHooks: delete hook tests (flag, config, multiple, not_run_on_branch_only, flag_overrides_config, failure_prevents_deletion, hook_runs_in_worktree_directory, output_to_stderr)
 //   - TestE2E_Complete: __complete command output tests
 package e2e
 
@@ -876,6 +877,223 @@ func TestE2E_Hooks(t *testing.T) {
 	})
 }
 
+func TestE2E_DeleteHooks(t *testing.T) {
+	t.Parallel()
+	binPath := buildBinary(t)
+
+	t.Run("flag", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-flag-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		markerPath := filepath.Join(t.TempDir(), "delete-hook-marker.txt")
+
+		out, err = runGitWt(t, binPath, repo.Root, "-D", "--deletehook", fmt.Sprintf("touch %s", markerPath), "delete-hook-flag-test")
+		if err != nil {
+			t.Fatalf("git-wt -D --deletehook failed: %v\noutput: %s", err, out)
+		}
+
+		if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+			t.Error("delete hook marker was not created")
+		}
+
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
+		}
+	})
+
+	t.Run("config", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		markerPath := filepath.Join(t.TempDir(), "config-delete-hook-marker.txt")
+
+		repo.Git("config", "--add", "wt.deletehook", fmt.Sprintf("touch %s", markerPath))
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-config-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+
+		out, err = runGitWt(t, binPath, repo.Root, "-D", "delete-hook-config-test")
+		if err != nil {
+			t.Fatalf("git-wt -D failed: %v\noutput: %s", err, out)
+		}
+
+		if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+			t.Error("delete hook marker from config was not created")
+		}
+	})
+
+	t.Run("multiple", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-multi-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+
+		orderPath := filepath.Join(t.TempDir(), "delete-hook-order.txt")
+
+		out, err = runGitWt(t, binPath, repo.Root, "-D",
+			"--deletehook", fmt.Sprintf("echo first > %s", orderPath),
+			"--deletehook", fmt.Sprintf("echo second >> %s", orderPath),
+			"delete-hook-multi-test")
+		if err != nil {
+			t.Fatalf("git-wt -D --deletehook (multiple) failed: %v\noutput: %s", err, out)
+		}
+
+		content, err := os.ReadFile(orderPath)
+		if err != nil {
+			t.Fatalf("order file was not created: %v", err)
+		}
+
+		expected := "first\nsecond\n"
+		if string(content) != expected {
+			t.Errorf("order file content = %q, want %q", string(content), expected)
+		}
+	})
+
+	t.Run("not_run_on_branch_only", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("branch", "orphan-branch")
+
+		markerPath := filepath.Join(t.TempDir(), "branch-only-marker.txt")
+
+		out, err := runGitWt(t, binPath, repo.Root, "-D", "--deletehook", fmt.Sprintf("touch %s", markerPath), "orphan-branch")
+		if err != nil {
+			t.Fatalf("git-wt -D failed: %v\noutput: %s", err, out)
+		}
+
+		if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
+			t.Error("delete hook should NOT have run when deleting a branch without a worktree")
+		}
+	})
+
+	t.Run("flag_overrides_config", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		configMarker := filepath.Join(t.TempDir(), "config-marker.txt")
+		flagMarker := filepath.Join(t.TempDir(), "flag-marker.txt")
+
+		repo.Git("config", "--add", "wt.deletehook", fmt.Sprintf("touch %s", configMarker))
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-override-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+
+		out, err = runGitWt(t, binPath, repo.Root, "-D", "--deletehook", fmt.Sprintf("touch %s", flagMarker), "delete-hook-override-test")
+		if err != nil {
+			t.Fatalf("git-wt -D --deletehook failed: %v\noutput: %s", err, out)
+		}
+
+		if _, err := os.Stat(flagMarker); os.IsNotExist(err) {
+			t.Error("flag delete hook marker should have been created")
+		}
+
+		if _, err := os.Stat(configMarker); !os.IsNotExist(err) {
+			t.Error("config delete hook should NOT have run (--deletehook flag overrides config)")
+		}
+	})
+
+	t.Run("failure_prevents_deletion", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-fail-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		_, _, err = runGitWtStdout(t, binPath, repo.Root, "-D", "--deletehook", "exit 1", "delete-hook-fail-test")
+		if err == nil {
+			t.Fatal("command should fail when delete hook fails")
+		}
+
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Error("worktree should NOT have been deleted when delete hook fails")
+		}
+	})
+
+	t.Run("hook_runs_in_worktree_directory", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-cwd-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		pwdFile := filepath.Join(t.TempDir(), "hook-pwd.txt")
+
+		out, err = runGitWt(t, binPath, repo.Root, "-D", "--deletehook", fmt.Sprintf("pwd > %s", pwdFile), "delete-hook-cwd-test")
+		if err != nil {
+			t.Fatalf("git-wt -D --deletehook failed: %v\noutput: %s", err, out)
+		}
+
+		content, err := os.ReadFile(pwdFile)
+		if err != nil {
+			t.Fatalf("pwd file was not created: %v", err)
+		}
+
+		hookPwd := strings.TrimSpace(string(content))
+		if hookPwd != wtPath {
+			t.Errorf("hook working directory = %q, want %q", hookPwd, wtPath)
+		}
+	})
+
+	t.Run("output_to_stderr", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "delete-hook-stderr-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+
+		stdout, stderr, err := runGitWtStdout(t, binPath, repo.Root, "-D", "--deletehook", "echo delete-hook-output-test", "delete-hook-stderr-test")
+		if err != nil {
+			t.Fatalf("git-wt -D --deletehook failed: %v\nstderr: %s", err, stderr)
+		}
+
+		if strings.Contains(stdout, "delete-hook-output-test") {
+			t.Errorf("hook output should NOT be in stdout, got: %s", stdout)
+		}
+
+		if !strings.Contains(stderr, "delete-hook-output-test") {
+			t.Errorf("hook output should be in stderr, got stderr: %s", stderr)
+		}
+	})
+}
+
 func TestE2E_Relative(t *testing.T) {
 	t.Parallel()
 	binPath := buildBinary(t)
@@ -1096,6 +1314,7 @@ func TestE2E_Complete(t *testing.T) {
 			"--copyuntracked",
 			"--copymodified",
 			"--hook",
+			"--deletehook",
 			"--nocopy",
 			"--nocd",
 			"--relative",
