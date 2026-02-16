@@ -207,6 +207,20 @@ $ git wt --hook "npm install" feature-branch
 > - Hooks only run when **creating** a new worktree, not when switching to an existing one.
 > - If a hook fails, execution stops immediately and `git wt` exits with an error (shell integration will not `cd` to the worktree).
 
+#### `wt.deletehook` / `--deletehook`
+
+Commands to run before deleting a worktree. Hooks run in the worktree directory before it is removed, so you can perform cleanup (e.g., push branches).
+
+``` console
+$ git config --add wt.deletehook "git push origin --delete $(git branch --show-current)"
+# or override for a single invocation (multiple hooks supported)
+$ git wt -D --deletehook "npm run cleanup" feature-branch
+```
+
+> [!NOTE]
+> - Hooks only run when deleting a **worktree**, not when deleting a branch without a worktree.
+> - If a hook fails, execution stops immediately and the worktree is preserved.
+
 #### `wt.nocd` / `--nocd`
 
 Do not change directory to the worktree. Only print the worktree path.
