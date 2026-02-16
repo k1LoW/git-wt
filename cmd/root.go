@@ -112,18 +112,18 @@ Configuration:
     Copy modified files to new worktrees.
     Default: false
 
-  wt.nocopy (--nocopy)
-    Patterns for files to exclude from copying (gitignore syntax).
-    Can be specified multiple times.
-    Example: git config --add wt.nocopy "*.log"
-             git config --add wt.nocopy "vendor/"
-
   wt.copy (--copy)
     Patterns for files to always copy, even if gitignored (gitignore syntax).
     Can be specified multiple times. Useful for copying specific IDE files.
-    Note: If the same file matches both wt.copy and wt.nocopy, wt.nocopy takes precedence.
     Example: git config --add wt.copy "*.code-workspace"
              git config --add wt.copy ".vscode/"
+
+  wt.nocopy (--nocopy)
+    Patterns for files to exclude from copying (gitignore syntax).
+    Can be specified multiple times.
+    Note: If the same file matches both wt.copy and wt.nocopy, wt.nocopy takes precedence.
+    Example: git config --add wt.nocopy "*.log"
+             git config --add wt.nocopy "vendor/"
 
   wt.hook (--hook)
     Commands to run after creating a new worktree.

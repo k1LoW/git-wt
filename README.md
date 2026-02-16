@@ -156,6 +156,22 @@ $ git wt --copymodified=false feature-branch  # explicitly disable
 
 Default: `false`
 
+#### `wt.copy` / `--copy`
+
+Always copy files matching patterns, even if they are gitignored. Uses `.gitignore` syntax.
+
+``` console
+$ git config --add wt.copy "*.code-workspace"
+$ git config --add wt.copy ".vscode/"
+# or override for a single invocation (multiple patterns supported)
+$ git wt --copy "*.code-workspace" --copy ".vscode/" feature-branch
+```
+
+This is useful when you want to copy specific IDE files (like VS Code workspace files) without enabling `wt.copyignored` for all gitignored files.
+
+> [!NOTE]
+> The worktree base directory (`wt.basedir`) is always excluded from file copying, regardless of copy options. This prevents circular copying when basedir is inside the repository (e.g., `.worktrees/`).
+
 #### `wt.nocopy` / `--nocopy`
 
 Exclude files matching patterns from copying. Uses `.gitignore` syntax.
@@ -173,24 +189,8 @@ Supported patterns (same as `.gitignore`):
 - `**/temp`: match in any directory
 - `/config.local`: relative to git root
 
-#### `wt.copy` / `--copy`
-
-Always copy files matching patterns, even if they are gitignored. Uses `.gitignore` syntax.
-
-``` console
-$ git config --add wt.copy "*.code-workspace"
-$ git config --add wt.copy ".vscode/"
-# or override for a single invocation (multiple patterns supported)
-$ git wt --copy "*.code-workspace" --copy ".vscode/" feature-branch
-```
-
-This is useful when you want to copy specific IDE files (like VS Code workspace files) without enabling `wt.copyignored` for all gitignored files.
-
 > [!NOTE]
 > If the same file matches both `wt.copy` and `wt.nocopy`, `wt.nocopy` takes precedence.
-
-> [!NOTE]
-> The worktree base directory (`wt.basedir`) is always excluded from file copying, regardless of copy options. This prevents circular copying when basedir is inside the repository (e.g., `.worktrees/`).
 
 #### `wt.hook` / `--hook`
 
@@ -220,6 +220,21 @@ $ git wt -D --deletehook "npm run cleanup" feature-branch
 > [!NOTE]
 > - Hooks only run when deleting a **worktree**, not when deleting a branch without a worktree.
 > - If a hook fails, execution stops immediately and the worktree is preserved.
+
+#### `wt.remover` / `--remover`
+
+Custom command to remove the worktree directory instead of `git worktree remove`. The worktree path is passed as an argument to the command. After the command completes, `git worktree prune` is run automatically.
+
+``` console
+$ git config wt.remover "trash-put"
+# or override for a single invocation
+$ git wt -D --remover "rm -rf" feature-branch
+```
+
+Default: (not set, uses `git worktree remove`)
+
+> [!NOTE]
+> - If the remover command fails, the worktree is preserved.
 
 #### `wt.nocd` / `--nocd`
 
