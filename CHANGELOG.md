@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.23.0](https://github.com/k1LoW/git-wt/compare/v0.22.0...v0.23.0) - 2026-02-16
+### New Features 🎉
+- feat: add `wt.remover` config and `--remover` flag by @ryoppippi in https://github.com/k1LoW/git-wt/pull/144
+### Other Changes
+- fix: improve error handling in file copy, init output, and worktree lookup by @k1LoW in https://github.com/k1LoW/git-wt/pull/146
+
 ## [v0.22.0](https://github.com/k1LoW/git-wt/compare/v0.21.1...v0.22.0) - 2026-02-16
 ### New Features 🎉
 - feat: support list command in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/140
