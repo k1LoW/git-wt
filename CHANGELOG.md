@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.22.0](https://github.com/k1LoW/git-wt/compare/v0.21.1...v0.22.0) - 2026-02-16
+### New Features 🎉
+- feat: support list command in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/140
+- feat: add `wt.deletehook` config and `--deletehook` flag by @ryoppippi in https://github.com/k1LoW/git-wt/pull/132
+### Other Changes
+- fix: print warning to stderr when file copy fails during worktree creation by @k1LoW in https://github.com/k1LoW/git-wt/pull/142
+
 ## [v0.21.1](https://github.com/k1LoW/git-wt/compare/v0.21.0...v0.21.1) - 2026-02-14
 ### Fix bug 🐛
 - fix: run git from mainRoot only if we deleted the current worktree by @yoichi in https://github.com/k1LoW/git-wt/pull/137
