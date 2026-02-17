@@ -178,6 +178,8 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.SetVersionTemplate(fmt.Sprintf("%s version {{.Version}}\n", version.Name))
+
 	// Disable Cobra's default "completion" subcommand.
 	// git-wt uses its own shell integration via --init flag instead.
 	rootCmd.CompletionOptions.DisableDefaultCmd = true

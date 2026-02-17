@@ -652,8 +652,8 @@ func TestE2E_CLI(t *testing.T) {
 			t.Fatalf("git-wt --version failed: %v\noutput: %s", err, out)
 		}
 
-		if !strings.Contains(out, "version") {
-			t.Errorf("expected version output, got: %s", out)
+		if !strings.Contains(out, "git-wt version") {
+			t.Errorf("expected 'git-wt version' in output, got: %s", out)
 		}
 	})
 
