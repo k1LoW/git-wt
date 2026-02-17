@@ -133,6 +133,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 
 	// First, try to find by branch name
 	for _, wt := range worktrees {
+		if wt.Bare {
+			continue
+		}
 		if wt.Branch != DetachedMarker && wt.Branch == query {
 			return &wt, nil
 		}
@@ -150,6 +153,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 
 	// Then, try to find by directory name (relative path from base dir)
 	for _, wt := range worktrees {
+		if wt.Bare {
+			continue
+		}
 		relPath, err := filepath.Rel(baseDir, wt.Path)
 		if err != nil {
 			continue
@@ -175,6 +181,9 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 			return nil, fmt.Errorf("failed to resolve symlinks for %q: %w", absPath, err)
 		}
 		for _, wt := range worktrees {
+			if wt.Bare {
+				continue
+			}
 			wtPath, err := filepath.EvalSymlinks(wt.Path)
 			if err != nil {
 				continue
@@ -205,21 +214,72 @@ func WorktreeDirName(ctx context.Context, wt *Worktree) (string, error) {
 	return relPath, nil
 }
 
-// AddWorktree creates a new worktree for the given branch.
-func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
-	// Get source root before creating worktree
-	srcRoot, err := RepoRoot(ctx)
+// addWorktreeContext holds pre-computed state shared by AddWorktree and AddWorktreeWithNewBranch.
+//
+// Invariant: when isBareRoot is true, srcRoot is always empty because bare
+// repositories have no working tree to copy files from.
+type addWorktreeContext struct {
+	isBareRoot bool
+	srcRoot    string // empty when isBareRoot is true
+}
+
+// prepareAdd detects the repository type (bare vs normal), determines the
+// copy source worktree root, and initializes the destination parent directory.
+func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
+	isBareRoot, err := IsBareRoot(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Ensure parent directory exists
+	var srcRoot string
+	if !isBareRoot {
+		srcRoot, err = CurrentWorktree(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	parentDir := filepath.Dir(path)
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
-		return fmt.Errorf("failed to create parent directory: %w", err)
+		return nil, fmt.Errorf("failed to create parent directory: %w", err)
+	}
+	if err := initBaseDir(parentDir); err != nil {
+		return nil, err
 	}
 
-	if err := initBaseDir(parentDir); err != nil {
+	return &addWorktreeContext{isBareRoot: isBareRoot, srcRoot: srcRoot}, nil
+}
+
+// copyAfterAdd copies files from the current worktree to the newly created worktree.
+// It is a no-op when running from a bare root (no working tree to copy from).
+func copyAfterAdd(ctx context.Context, ac *addWorktreeContext, dstPath string, copyOpts CopyOptions) error {
+	if ac.isBareRoot {
+		return nil
+	}
+
+	// Exclude basedir from copy to prevent circular copying, but only when
+	// srcRoot is outside the basedir. When srcRoot is inside the basedir
+	// (e.g., bare-derived worktree at .wt/main), git ls-files already scopes
+	// to srcRoot, so adding the basedir would incorrectly skip all source files.
+	parentDir := filepath.Dir(dstPath)
+	// Exclude parentDir when srcRoot is outside it (Rel fails or returns ".."),
+	// meaning srcRoot is not itself inside the basedir. When srcRoot IS inside
+	// the basedir (bare-derived worktree), we must not exclude it or git ls-files
+	// would find nothing to copy.
+	if rel, err := filepath.Rel(parentDir, ac.srcRoot); err != nil || strings.HasPrefix(rel, "..") {
+		copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
+	}
+
+	if err := CopyFilesToWorktree(ctx, ac.srcRoot, dstPath, copyOpts, os.Stderr); err != nil {
+		return fmt.Errorf("failed to copy files: %w", err)
+	}
+	return nil
+}
+
+// AddWorktree creates a new worktree for the given branch.
+func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
+	ac, err := prepareAdd(ctx, path)
+	if err != nil {
 		return err
 	}
 
@@ -227,44 +287,23 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 	if err != nil {
 		return err
 	}
-	// Output git messages to stderr so stdout only contains the path for shell integration
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	// Exclude basedir from copy to prevent circular copying
-	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
-
-	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts, os.Stderr); err != nil {
-		return fmt.Errorf("failed to copy files: %w", err)
-	}
-
-	return nil
+	return copyAfterAdd(ctx, ac, path, copyOpts)
 }
 
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.
 // If startPoint is specified, the new branch will be created from that commit/branch.
 func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint string, copyOpts CopyOptions) error {
-	// Get source root before creating worktree
-	srcRoot, err := RepoRoot(ctx)
+	ac, err := prepareAdd(ctx, path)
 	if err != nil {
 		return err
 	}
 
-	// Ensure parent directory exists
-	parentDir := filepath.Dir(path)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
-		return fmt.Errorf("failed to create parent directory: %w", err)
-	}
-
-	if err := initBaseDir(parentDir); err != nil {
-		return err
-	}
-
-	// Build command arguments
 	args := []string{"worktree", "add", "-b", branch, path}
 	if startPoint != "" {
 		args = append(args, startPoint)
@@ -274,22 +313,13 @@ func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint stri
 	if err != nil {
 		return err
 	}
-	// Output git messages to stderr so stdout only contains the path for shell integration
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
-	// Exclude basedir from copy to prevent circular copying
-	copyOpts.ExcludeDirs = append(copyOpts.ExcludeDirs, parentDir)
-
-	// Copy files to new worktree
-	if err := CopyFilesToWorktree(ctx, srcRoot, path, copyOpts, os.Stderr); err != nil {
-		return fmt.Errorf("failed to copy files: %w", err)
-	}
-
-	return nil
+	return copyAfterAdd(ctx, ac, path, copyOpts)
 }
 
 // initBaseDir initializes the basedir with .gitignore and README.md files.

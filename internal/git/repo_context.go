@@ -207,19 +207,6 @@ func ShowPrefix(ctx context.Context) (string, error) {
 	return strings.TrimSuffix(strings.TrimSpace(string(out)), "/"), nil
 }
 
-// RepoRoot returns the root directory of the current git repository (or worktree).
-func RepoRoot(ctx context.Context) (string, error) {
-	cmd, err := gitCommand(ctx, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return "", err
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 // MainRepoRoot returns the root directory of the main git repository.
 // Unlike RepoRoot, this returns the main repository root even when called from a worktree.
 //

@@ -72,7 +72,8 @@ Note: The default branch (e.g., main, master) is protected from accidental delet
       - Without worktree: deletion is blocked entirely.
       Use --allow-delete-default to override and delete the branch.
 
-Note: Bare repositories are not currently supported.
+Note: Bare repositories are supported for list and add/switch operations.
+      Delete operation in bare repositories is not yet supported.
       See https://github.com/k1LoW/git-wt/issues/130 for details.
 
 Shell Integration:
@@ -253,12 +254,6 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	// git wt <branch> [<start-point>]
 	if len(args) > 2 {
 		return fmt.Errorf("too many arguments: expected <branch> [<start-point>], got %d arguments", len(args))
-	}
-
-	// Guard: bare repositories are not supported for add/switch operation.
-	// Remove this guard when bare add/switch support is implemented.
-	if err := git.AssertNotBareRepository(ctx); err != nil {
-		return err
 	}
 
 	branch := args[0]
