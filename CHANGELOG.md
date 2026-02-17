@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.24.0](https://github.com/k1LoW/git-wt/compare/v0.23.0...v0.24.0) - 2026-02-17
+### New Features 🎉
+- feat: support add/switch operations in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/147
+### Fix bug 🐛
+- fix: use custom version template to output "git-wt version" instead of "git version" by @k1LoW in https://github.com/k1LoW/git-wt/pull/148
+
 ## [v0.23.0](https://github.com/k1LoW/git-wt/compare/v0.22.0...v0.23.0) - 2026-02-16
 ### New Features 🎉
 - feat: add `wt.remover` config and `--remover` flag by @ryoppippi in https://github.com/k1LoW/git-wt/pull/144
