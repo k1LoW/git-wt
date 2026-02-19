@@ -445,15 +445,16 @@ func completeStartPoint(ctx context.Context) ([]string, cobra.ShellCompDirective
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
-// truncateString truncates a string to maxLen characters, adding "..." if truncated.
+// truncateString truncates a string to maxLen runes, adding "..." if truncated.
 func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	r := []rune(s)
+	if len(r) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return string(r[:maxLen])
 	}
-	return s[:maxLen-3] + "..."
+	return string(r[:maxLen-3]) + "..."
 }
 
 func listWorktrees(ctx context.Context) error {
