@@ -84,7 +84,7 @@ func TestCurrentWorktree(t *testing.T) {
 	}
 
 	if path != repo.Root {
-		t.Errorf("CurrentWorktree() = %q, want %q", path, repo.Root) //nostyle:errorstrings
+		t.Errorf("CurrentWorktree() = %q, want %q", path, repo.Root)
 	}
 }
 
@@ -102,7 +102,7 @@ func TestCurrentLocation_NormalRepo(t *testing.T) {
 	}
 
 	if path != repo.Root {
-		t.Errorf("CurrentLocation() = %q, want %q", path, repo.Root) //nostyle:errorstrings
+		t.Errorf("CurrentLocation() = %q, want %q", path, repo.Root)
 	}
 }
 
@@ -133,7 +133,7 @@ func TestCurrentLocation_NormalWorktree(t *testing.T) {
 	}
 
 	if path != wtPath {
-		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath) //nostyle:errorstrings
+		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath)
 	}
 }
 
@@ -159,7 +159,7 @@ func TestCurrentLocation_BareRoot(t *testing.T) {
 	}
 
 	if path != bareRepo.Root {
-		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root) //nostyle:errorstrings
+		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestCurrentLocation_CoreBareTrueRoot(t *testing.T) {
 	}
 
 	if path != bareRepo.Root {
-		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root) //nostyle:errorstrings
+		t.Errorf("CurrentLocation() = %q, want %q", path, bareRepo.Root)
 	}
 }
 
@@ -215,7 +215,7 @@ func TestCurrentLocation_BareWorktree(t *testing.T) {
 	}
 
 	if path != wtPath {
-		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath) //nostyle:errorstrings
+		t.Errorf("CurrentLocation() = %q, want %q", path, wtPath)
 	}
 }
 

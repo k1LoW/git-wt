@@ -2,7 +2,9 @@ analyzers:
   disable:
     - mixedcaps # disable mixedcaps analyzer. because the underscores analyzer is more detailed.
     - funcfmt
-# analyzers-settings:
+analyzers-settings:
+  errorstrings:
+    exclude-test: true
 #  dontpanic:
 #    exclude-test: true         # exclude test files (default: false)
 #  handlerrors:

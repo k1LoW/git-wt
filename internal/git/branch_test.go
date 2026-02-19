@@ -32,7 +32,7 @@ func TestBranchExists(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("BranchExists(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
+				t.Errorf("BranchExists(%q) = %v, want %v", tt.branch, got, tt.want)
 			}
 		})
 	}
@@ -64,7 +64,7 @@ func TestLocalBranchExists(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("LocalBranchExists(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
+				t.Errorf("LocalBranchExists(%q) = %v, want %v", tt.branch, got, tt.want)
 			}
 		})
 	}
@@ -219,7 +219,7 @@ func TestIsBranchMerged(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("IsBranchMerged(%q) = %v, want %v", tt.branch, got, tt.want) //nostyle:errorstrings
+				t.Errorf("IsBranchMerged(%q) = %v, want %v", tt.branch, got, tt.want)
 			}
 		})
 	}
@@ -242,6 +242,6 @@ func TestDefaultBranch(t *testing.T) {
 	}
 
 	if branch != "main" {
-		t.Errorf("DefaultBranch() = %q, want %q", branch, "main") //nostyle:errorstrings
+		t.Errorf("DefaultBranch() = %q, want %q", branch, "main")
 	}
 }

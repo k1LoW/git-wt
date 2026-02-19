@@ -34,7 +34,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for bare repository list, but got error: %v\noutput: %s", err, out)
 		}
 		if !strings.Contains(out, "(bare)") {
-			t.Errorf("output should contain '(bare)' label, got: %s", out) //nostyle:errorstrings
+			t.Errorf("output should contain '(bare)' label, got: %s", out)
 		}
 	})
 
@@ -110,7 +110,7 @@ func TestE2E_BareRepository(t *testing.T) {
 		}
 		// Should show both the bare entry and the worktree entry
 		if !strings.Contains(out, "(bare)") {
-			t.Errorf("output should contain '(bare)' label, got: %s", out) //nostyle:errorstrings
+			t.Errorf("output should contain '(bare)' label, got: %s", out)
 		}
 		if !strings.Contains(out, "main") {
 			t.Errorf("output should contain 'main' branch, got: %s", out)
@@ -160,7 +160,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for dotgit bare repository list, but got error: %v\noutput: %s", err, out)
 		}
 		if !strings.Contains(out, "(bare)") {
-			t.Errorf("output should contain '(bare)' label, got: %s", out) //nostyle:errorstrings
+			t.Errorf("output should contain '(bare)' label, got: %s", out)
 		}
 	})
 

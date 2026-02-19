@@ -242,7 +242,6 @@ func TestIsBareRepository_WorktreeFromBare(t *testing.T) {
 	}
 }
 
-
 func TestWithRepoContext_CacheHit(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
@@ -306,7 +305,7 @@ func TestShowPrefix(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if prefix != "" {
-			t.Errorf("ShowPrefix() at root = %q, want empty string", prefix) //nostyle:errorstrings
+			t.Errorf("ShowPrefix() at root = %q, want empty string", prefix)
 		}
 	})
 
@@ -324,7 +323,7 @@ func TestShowPrefix(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if prefix != "some/path" {
-			t.Errorf("ShowPrefix() in subdir = %q, want %q", prefix, "some/path") //nostyle:errorstrings
+			t.Errorf("ShowPrefix() in subdir = %q, want %q", prefix, "some/path")
 		}
 	})
 }
@@ -347,7 +346,7 @@ func TestMainRepoRoot(t *testing.T) {
 	}
 
 	if root != repo.Root {
-		t.Errorf("MainRepoRoot() = %q, want %q", root, repo.Root) //nostyle:errorstrings
+		t.Errorf("MainRepoRoot() = %q, want %q", root, repo.Root)
 	}
 
 	// Test from subdirectory
@@ -362,7 +361,7 @@ func TestMainRepoRoot(t *testing.T) {
 	}
 
 	if root != repo.Root {
-		t.Errorf("MainRepoRoot() from subdir = %q, want %q", root, repo.Root) //nostyle:errorstrings
+		t.Errorf("MainRepoRoot() from subdir = %q, want %q", root, repo.Root)
 	}
 }
 
@@ -381,7 +380,7 @@ func TestRepoName(t *testing.T) {
 
 	// The repo is created in a temp directory named "repo"
 	if name != "repo" {
-		t.Errorf("RepoName() = %q, want %q", name, "repo") //nostyle:errorstrings
+		t.Errorf("RepoName() = %q, want %q", name, "repo")
 	}
 }
 
@@ -539,7 +538,7 @@ func TestMainRepoRoot_BareRepo(t *testing.T) {
 
 	// Bare repo: MainRepoRoot should return the bare repo directory itself
 	if root != bareRepo.Root {
-		t.Errorf("MainRepoRoot() = %q, want %q", root, bareRepo.Root) //nostyle:errorstrings
+		t.Errorf("MainRepoRoot() = %q, want %q", root, bareRepo.Root)
 	}
 }
 
@@ -573,7 +572,7 @@ func TestMainRepoRoot_WorktreeFromBare(t *testing.T) {
 
 	// From a bare-derived worktree, MainRepoRoot should return the bare repo directory
 	if root != bareRepo.Root {
-		t.Errorf("MainRepoRoot() = %q, want %q", root, bareRepo.Root) //nostyle:errorstrings
+		t.Errorf("MainRepoRoot() = %q, want %q", root, bareRepo.Root)
 	}
 }
 
@@ -600,7 +599,7 @@ func TestRepoName_BareRepo(t *testing.T) {
 
 	// BareTestRepo creates "repo.git", so RepoName should return "repo.git"
 	if name != "repo.git" {
-		t.Errorf("RepoName() = %q, want %q", name, "repo.git") //nostyle:errorstrings
+		t.Errorf("RepoName() = %q, want %q", name, "repo.git")
 	}
 }
 

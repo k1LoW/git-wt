@@ -576,11 +576,11 @@ echo "EXISTING_PWD=$EXISTING_PWD"
 				}
 
 				if strings.Contains(newPwd, branchName) {
-					t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd) //nostyle:errorstrings
+					t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd)
 				}
 
 				if !strings.Contains(existingPwd, branchName) {
-					t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd) //nostyle:errorstrings
+					t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd)
 				}
 			})
 		}

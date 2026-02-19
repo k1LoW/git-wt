@@ -45,12 +45,12 @@ func TestGitConfig(t *testing.T) {
 				t.Fatalf("GitConfig(%q) error = %v, wantErr %v", tt.key, err, tt.wantErr)
 			}
 			if len(got) != len(tt.want) {
-				t.Errorf("GitConfig(%q) = %v, want %v", tt.key, got, tt.want) //nostyle:errorstrings
+				t.Errorf("GitConfig(%q) = %v, want %v", tt.key, got, tt.want)
 				return
 			}
 			for i := range got {
 				if got[i] != tt.want[i] {
-					t.Errorf("GitConfig(%q)[%d] = %q, want %q", tt.key, i, got[i], tt.want[i]) //nostyle:errorstrings
+					t.Errorf("GitConfig(%q)[%d] = %q, want %q", tt.key, i, got[i], tt.want[i])
 				}
 			}
 		})
@@ -77,16 +77,16 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	if cfg.BaseDir != "../custom-worktrees" {
-		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../custom-worktrees") //nostyle:errorstrings
+		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../custom-worktrees")
 	}
 	if !cfg.CopyIgnored {
-		t.Errorf("LoadConfig().CopyIgnored = %v, want true", cfg.CopyIgnored) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyIgnored = %v, want true", cfg.CopyIgnored)
 	}
 	if cfg.CopyUntracked {
-		t.Errorf("LoadConfig().CopyUntracked = %v, want false", cfg.CopyUntracked) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyUntracked = %v, want false", cfg.CopyUntracked)
 	}
 	if !cfg.CopyModified {
-		t.Errorf("LoadConfig().CopyModified = %v, want true", cfg.CopyModified) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyModified = %v, want true", cfg.CopyModified)
 	}
 
 	// Test with explicit default pattern
@@ -101,19 +101,19 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	if cfg.BaseDir != "../{gitroot}-wt" {
-		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../{gitroot}-wt") //nostyle:errorstrings
+		t.Errorf("LoadConfig().BaseDir = %q, want %q", cfg.BaseDir, "../{gitroot}-wt")
 	}
 	if cfg.CopyIgnored {
-		t.Errorf("LoadConfig().CopyIgnored default = %v, want false", cfg.CopyIgnored) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyIgnored default = %v, want false", cfg.CopyIgnored)
 	}
 	if cfg.CopyUntracked {
-		t.Errorf("LoadConfig().CopyUntracked default = %v, want false", cfg.CopyUntracked) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyUntracked default = %v, want false", cfg.CopyUntracked)
 	}
 	if cfg.CopyModified {
-		t.Errorf("LoadConfig().CopyModified default = %v, want false", cfg.CopyModified) //nostyle:errorstrings
+		t.Errorf("LoadConfig().CopyModified default = %v, want false", cfg.CopyModified)
 	}
 	if cfg.NoCd {
-		t.Errorf("LoadConfig().NoCd default = %v, want false", cfg.NoCd) //nostyle:errorstrings
+		t.Errorf("LoadConfig().NoCd default = %v, want false", cfg.NoCd)
 	}
 
 	// Test NoCd setting
@@ -125,7 +125,7 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	if !cfg.NoCd {
-		t.Errorf("LoadConfig().NoCd = %v, want true", cfg.NoCd) //nostyle:errorstrings
+		t.Errorf("LoadConfig().NoCd = %v, want true", cfg.NoCd)
 	}
 }
 
@@ -176,7 +176,7 @@ func TestExpandPath(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("ExpandPath(%q) = %q, want %q", tt.path, got, tt.want) //nostyle:errorstrings
+				t.Errorf("ExpandPath(%q) = %q, want %q", tt.path, got, tt.want)
 			}
 		})
 	}
@@ -199,7 +199,7 @@ func TestWorktreePathFor(t *testing.T) {
 	// Expected: parent_dir/repo-wt/feature-branch
 	expectedDir := filepath.Clean(filepath.Join(repo.Root, "../repo-wt/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("WorktreePathFor(\"feature-branch\") = %q, want %q", path, expectedDir) //nostyle:errorstrings
+		t.Errorf("WorktreePathFor(\"feature-branch\") = %q, want %q", path, expectedDir)
 	}
 
 	// Test with custom basedir
@@ -210,7 +210,7 @@ func TestWorktreePathFor(t *testing.T) {
 
 	expectedDir = filepath.Clean(filepath.Join(repo.Root, "../repo-worktrees/feature-branch"))
 	if path != expectedDir {
-		t.Errorf("WorktreePathFor(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir) //nostyle:errorstrings
+		t.Errorf("WorktreePathFor(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir)
 	}
 }
 
@@ -256,7 +256,7 @@ func TestExpandBaseDir(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tt.want {
-				t.Errorf("ExpandBaseDir(%q) = %q, want %q", tt.baseDir, got, tt.want) //nostyle:errorstrings
+				t.Errorf("ExpandBaseDir(%q) = %q, want %q", tt.baseDir, got, tt.want)
 			}
 		})
 	}
@@ -316,6 +316,6 @@ func TestSetConfig(t *testing.T) {
 		t.Fatalf("GitConfig() error = %v", err)
 	}
 	if len(values) != 1 || values[0] != "../test-wt" {
-		t.Errorf("GitConfig() = %v, want [../test-wt]", values) //nostyle:errorstrings
+		t.Errorf("GitConfig() = %v, want [../test-wt]", values)
 	}
 }
