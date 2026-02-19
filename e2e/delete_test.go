@@ -59,19 +59,7 @@ func TestE2E_DeleteWorktree(t *testing.T) {
 		wtPath := worktreePath(out)
 
 		// Make a commit in the worktree (will be unmerged)
-		if err := os.WriteFile(filepath.Join(wtPath, "new.txt"), []byte("content"), 0600); err != nil {
-			t.Fatalf("failed to create file: %v", err)
-		}
-		cmd := exec.Command("git", "add", "-A")
-		cmd.Dir = wtPath
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git add failed: %v", err)
-		}
-		cmd = exec.Command("git", "commit", "-m", "unmerged commit")
-		cmd.Dir = wtPath
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git commit failed: %v", err)
-		}
+		commitUnmergedChange(t, wtPath)
 
 		out, err = runGitWt(t, binPath, repo.Root, "-D", "unmerged")
 		if err != nil {
@@ -190,19 +178,7 @@ func TestE2E_DeleteWorktree(t *testing.T) {
 		}
 		wtPath := worktreePath(out)
 
-		if err := os.WriteFile(filepath.Join(wtPath, "new.txt"), []byte("content"), 0600); err != nil {
-			t.Fatalf("failed to create file: %v", err)
-		}
-		cmd := exec.Command("git", "add", "-A")
-		cmd.Dir = wtPath
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git add failed: %v", err)
-		}
-		cmd = exec.Command("git", "commit", "-m", "unmerged commit")
-		cmd.Dir = wtPath
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git commit failed: %v", err)
-		}
+		commitUnmergedChange(t, wtPath)
 
 		// Delete worktree with -d (safe delete) - should succeed but not delete branch
 		out, err = runGitWt(t, binPath, repo.Root, "-d", "unmerged-branch")
@@ -222,7 +198,7 @@ func TestE2E_DeleteWorktree(t *testing.T) {
 		}
 
 		// Verify branch still exists
-		cmd = exec.Command("git", "branch", "--list", "unmerged-branch")
+		cmd := exec.Command("git", "branch", "--list", "unmerged-branch")
 		cmd.Dir = repo.Root
 		branchOut, err := cmd.Output()
 		if err != nil {
@@ -369,22 +345,10 @@ pwd
 				}
 				wtPath := worktreePath(out)
 
-				if err := os.WriteFile(filepath.Join(wtPath, "new.txt"), []byte("content"), 0600); err != nil {
-					t.Fatalf("failed to create file: %v", err)
-				}
-				cmd := exec.Command("git", "add", "-A")
-				cmd.Dir = wtPath
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("git add failed: %v", err)
-				}
-				cmd = exec.Command("git", "commit", "-m", "unmerged commit")
-				cmd.Dir = wtPath
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("git commit failed: %v", err)
-				}
+				commitUnmergedChange(t, wtPath)
 
 				script := tt.scriptFunc(repo.Root, wtPath, filepath.Dir(binPath), branchName)
-				cmd = exec.Command(tt.shell, "-c", script) //#nosec G204
+				cmd := exec.Command(tt.shell, "-c", script) //#nosec G204
 				cmdOut, err := cmd.CombinedOutput()
 				if err != nil {
 					t.Fatalf("%s shell integration failed: %v\noutput: %s", tt.shell, err, cmdOut)

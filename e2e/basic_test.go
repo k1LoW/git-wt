@@ -820,16 +820,3 @@ func TestE2E_LegacyBaseDirMigration(t *testing.T) {
 		}
 	})
 }
-
-// runGitWtWithStderr runs git-wt and returns stdout, stderr, and error separately.
-func runGitWtWithStderr(t *testing.T, binPath, dir string, args ...string) (string, string, error) {
-	t.Helper()
-	cmd := exec.CommandContext(t.Context(), binPath, args...)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
-}

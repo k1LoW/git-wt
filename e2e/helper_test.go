@@ -4,6 +4,7 @@
 //   - buildBinary: builds the git-wt binary for testing
 //   - runGitWt: executes git-wt and returns combined output
 //   - runGitWtStdout: executes git-wt and returns stdout/stderr separately
+//   - runGitWtWithStderr: executes git-wt with isolated HOME and returns stdout/stderr separately
 //   - worktreePath: extracts worktree path from command output
 package e2e
 
@@ -63,6 +64,21 @@ func runGitWtStdout(t *testing.T, binPath, dir string, args ...string) (stdout s
 	cmd.Stderr = &stderrBuf
 	err = cmd.Run()
 	return strings.TrimSpace(stdoutBuf.String()), strings.TrimSpace(stderrBuf.String()), err
+}
+
+// runGitWtWithStderr runs git-wt with an isolated HOME directory and returns stdout, stderr, and error separately.
+// This is useful for tests that need to avoid interference from user-level git config.
+func runGitWtWithStderr(t *testing.T, binPath, dir string, args ...string) (string, string, error) {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), binPath, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
 }
 
 // worktreePath extracts the worktree path from git-wt output.

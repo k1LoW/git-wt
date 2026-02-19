@@ -354,131 +354,88 @@ func TestE2E_Nocd(t *testing.T) {
 	t.Parallel()
 	binPath := buildBinary(t)
 
-	t.Run("config_bash", func(t *testing.T) {
+	t.Run("config", func(t *testing.T) {
 		t.Parallel()
-		if _, err := exec.LookPath("bash"); err != nil {
-			t.Skip("bash not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd in config
-		repo.Git("config", "wt.nocd", "true")
-
-		script := fmt.Sprintf(`
+		tests := []struct {
+			name       string
+			shell      string
+			scriptFunc func(repoRoot, pathDir, branchName string) string
+		}{
+			{
+				name:  "bash",
+				shell: "bash",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 set -e
 cd %q
 export PATH="%s:$PATH"
 eval "$(git wt --init bash)"
-
-# Test: git wt <branch> with wt.nocd=true should NOT cd to the worktree
-git wt nocd-config-bash-test
+git wt %s
 pwd
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("bash", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("bash shell integration with wt.nocd config failed: %v\noutput: %s", err, out)
-		}
-
-		output := strings.TrimSpace(string(out))
-		lines := strings.Split(output, "\n")
-		pwd := lines[len(lines)-1]
-
-		// With wt.nocd=true config, pwd should remain in original repo root
-		if strings.Contains(pwd, "nocd-config-bash-test") {
-			t.Errorf("pwd should NOT contain worktree path when wt.nocd=true, got: %s", pwd)
-		}
-		if pwd != repo.Root {
-			t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
-		}
-	})
-
-	t.Run("config_zsh", func(t *testing.T) {
-		t.Parallel()
-		if _, err := exec.LookPath("zsh"); err != nil {
-			t.Skip("zsh not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd in config
-		repo.Git("config", "wt.nocd", "true")
-
-		script := fmt.Sprintf(`
+`, repoRoot, pathDir, branchName)
+				},
+			},
+			{
+				name:  "zsh",
+				shell: "zsh",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 set -e
 cd %q
 export PATH="%s:$PATH"
 eval "$(git wt --init zsh)"
-
-# Test: git wt <branch> with wt.nocd=true should NOT cd to the worktree
-git wt nocd-config-zsh-test
+git wt %s
 pwd
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("zsh", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("zsh shell integration with wt.nocd config failed: %v\noutput: %s", err, out)
-		}
-
-		output := strings.TrimSpace(string(out))
-		lines := strings.Split(output, "\n")
-		pwd := lines[len(lines)-1]
-
-		// With wt.nocd=true config, pwd should remain in original repo root
-		if strings.Contains(pwd, "nocd-config-zsh-test") {
-			t.Errorf("pwd should NOT contain worktree path when wt.nocd=true, got: %s", pwd)
-		}
-		if pwd != repo.Root {
-			t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
-		}
-	})
-
-	t.Run("config_fish", func(t *testing.T) {
-		t.Parallel()
-		if _, err := exec.LookPath("fish"); err != nil {
-			t.Skip("fish not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd in config
-		repo.Git("config", "wt.nocd", "true")
-
-		script := fmt.Sprintf(`
+`, repoRoot, pathDir, branchName)
+				},
+			},
+			{
+				name:  "fish",
+				shell: "fish",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 cd %q
 set -x PATH %s $PATH
 git wt --init fish | source
-
-# Test: git wt <branch> with wt.nocd=true should NOT cd to the worktree
-git wt nocd-config-fish-test
+git wt %s
 pwd
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("fish", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("fish shell integration with wt.nocd config failed: %v\noutput: %s", err, out)
+`, repoRoot, pathDir, branchName)
+				},
+			},
 		}
 
-		output := strings.TrimSpace(string(out))
-		lines := strings.Split(output, "\n")
-		pwd := lines[len(lines)-1]
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				if _, err := exec.LookPath(tt.shell); err != nil {
+					t.Skipf("%s not available", tt.shell)
+				}
 
-		// With wt.nocd=true config, pwd should remain in original repo root
-		if strings.Contains(pwd, "nocd-config-fish-test") {
-			t.Errorf("pwd should NOT contain worktree path when wt.nocd=true, got: %s", pwd)
-		}
-		if pwd != repo.Root {
-			t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
+				repo := testutil.NewTestRepo(t)
+				repo.CreateFile("README.md", "# Test")
+				repo.Commit("initial commit")
+
+				repo.Git("config", "wt.nocd", "true")
+
+				branchName := fmt.Sprintf("nocd-config-%s-test", tt.shell)
+				script := tt.scriptFunc(repo.Root, filepath.Dir(binPath), branchName)
+				cmd := exec.Command(tt.shell, "-c", script) //#nosec G204
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Fatalf("%s shell integration with wt.nocd config failed: %v\noutput: %s", tt.shell, err, out)
+				}
+
+				output := strings.TrimSpace(string(out))
+				lines := strings.Split(output, "\n")
+				pwd := lines[len(lines)-1]
+
+				if strings.Contains(pwd, branchName) {
+					t.Errorf("pwd should NOT contain worktree path when wt.nocd=true, got: %s", pwd)
+				}
+				if pwd != repo.Root {
+					t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
+				}
+			})
 		}
 	})
 
@@ -508,186 +465,124 @@ pwd
 		}
 	})
 
-	t.Run("create_config_bash", func(t *testing.T) {
+	t.Run("create_config", func(t *testing.T) {
 		t.Parallel()
-		// Test that wt.nocd=create prevents cd only for new worktrees.
-		if _, err := exec.LookPath("bash"); err != nil {
-			t.Skip("bash not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd=create in config
-		repo.Git("config", "wt.nocd", "create")
-
-		script := fmt.Sprintf(`
+		tests := []struct {
+			name       string
+			shell      string
+			scriptFunc func(repoRoot, pathDir, branchName string) string
+		}{
+			{
+				name:  "bash",
+				shell: "bash",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 set -e
 cd %q
 export PATH="%s:$PATH"
 eval "$(git wt --init bash)"
 
 # Create a worktree first (should NOT cd because wt.nocd=create)
-git wt nocd-create-bash-new
+git wt %s
 NEW_PWD=$(pwd)
 
 # Switch to existing worktree (should cd because wt.nocd=create allows existing)
-git wt nocd-create-bash-new
+git wt %s
 EXISTING_PWD=$(pwd)
 
 echo "NEW_PWD=$NEW_PWD"
 echo "EXISTING_PWD=$EXISTING_PWD"
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("bash", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("bash shell integration with wt.nocd=create config failed: %v\noutput: %s", err, out)
-		}
-
-		output := string(out)
-
-		// Parse NEW_PWD and EXISTING_PWD from output
-		var newPwd, existingPwd string
-		for _, line := range strings.Split(output, "\n") {
-			if strings.HasPrefix(line, "NEW_PWD=") {
-				newPwd = strings.TrimPrefix(line, "NEW_PWD=")
-			}
-			if strings.HasPrefix(line, "EXISTING_PWD=") {
-				existingPwd = strings.TrimPrefix(line, "EXISTING_PWD=")
-			}
-		}
-
-		// With wt.nocd=create, creating new worktree should NOT cd
-		if strings.Contains(newPwd, "nocd-create-bash-new") {
-			t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd) //nostyle:errorstrings
-		}
-
-		// With wt.nocd=create, switching to existing worktree should cd
-		if !strings.Contains(existingPwd, "nocd-create-bash-new") {
-			t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd) //nostyle:errorstrings
-		}
-	})
-
-	t.Run("create_config_zsh", func(t *testing.T) {
-		t.Parallel()
-		if _, err := exec.LookPath("zsh"); err != nil {
-			t.Skip("zsh not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd=create in config
-		repo.Git("config", "wt.nocd", "create")
-
-		script := fmt.Sprintf(`
+`, repoRoot, pathDir, branchName, branchName)
+				},
+			},
+			{
+				name:  "zsh",
+				shell: "zsh",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 set -e
 cd %q
 export PATH="%s:$PATH"
 eval "$(git wt --init zsh)"
 
 # Create a worktree first (should NOT cd because wt.nocd=create)
-git wt nocd-create-zsh-new
+git wt %s
 NEW_PWD=$(pwd)
 
 # Switch to existing worktree (should cd because wt.nocd=create allows existing)
-git wt nocd-create-zsh-new
+git wt %s
 EXISTING_PWD=$(pwd)
 
 echo "NEW_PWD=$NEW_PWD"
 echo "EXISTING_PWD=$EXISTING_PWD"
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("zsh", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("zsh shell integration with wt.nocd=create config failed: %v\noutput: %s", err, out)
-		}
-
-		output := string(out)
-
-		// Parse NEW_PWD and EXISTING_PWD from output
-		var newPwd, existingPwd string
-		for _, line := range strings.Split(output, "\n") {
-			if strings.HasPrefix(line, "NEW_PWD=") {
-				newPwd = strings.TrimPrefix(line, "NEW_PWD=")
-			}
-			if strings.HasPrefix(line, "EXISTING_PWD=") {
-				existingPwd = strings.TrimPrefix(line, "EXISTING_PWD=")
-			}
-		}
-
-		// With wt.nocd=create, creating new worktree should NOT cd
-		if strings.Contains(newPwd, "nocd-create-zsh-new") {
-			t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd) //nostyle:errorstrings
-		}
-
-		// With wt.nocd=create, switching to existing worktree should cd
-		if !strings.Contains(existingPwd, "nocd-create-zsh-new") {
-			t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd) //nostyle:errorstrings
-		}
-	})
-
-	t.Run("create_config_fish", func(t *testing.T) {
-		t.Parallel()
-		if _, err := exec.LookPath("fish"); err != nil {
-			t.Skip("fish not available")
-		}
-
-		repo := testutil.NewTestRepo(t)
-		repo.CreateFile("README.md", "# Test")
-		repo.Commit("initial commit")
-
-		// Set wt.nocd=create in config
-		repo.Git("config", "wt.nocd", "create")
-
-		script := fmt.Sprintf(`
+`, repoRoot, pathDir, branchName, branchName)
+				},
+			},
+			{
+				name:  "fish",
+				shell: "fish",
+				scriptFunc: func(repoRoot, pathDir, branchName string) string {
+					return fmt.Sprintf(`
 cd %q
 set -x PATH %s $PATH
 git wt --init fish | source
 
 # Create a worktree first (should NOT cd because wt.nocd=create)
-git wt nocd-create-fish-new
+git wt %s
 set NEW_PWD (pwd)
 
 # Switch to existing worktree (should cd because wt.nocd=create allows existing)
-git wt nocd-create-fish-new
+git wt %s
 set EXISTING_PWD (pwd)
 
 echo "NEW_PWD=$NEW_PWD"
 echo "EXISTING_PWD=$EXISTING_PWD"
-`, repo.Root, filepath.Dir(binPath))
-
-		cmd := exec.Command("fish", "-c", script) //#nosec G204
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("fish shell integration with wt.nocd=create config failed: %v\noutput: %s", err, out)
+`, repoRoot, pathDir, branchName, branchName)
+				},
+			},
 		}
 
-		output := string(out)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				if _, err := exec.LookPath(tt.shell); err != nil {
+					t.Skipf("%s not available", tt.shell)
+				}
 
-		// Parse NEW_PWD and EXISTING_PWD from output
-		var newPwd, existingPwd string
-		for _, line := range strings.Split(output, "\n") {
-			if strings.HasPrefix(line, "NEW_PWD=") {
-				newPwd = strings.TrimPrefix(line, "NEW_PWD=")
-			}
-			if strings.HasPrefix(line, "EXISTING_PWD=") {
-				existingPwd = strings.TrimPrefix(line, "EXISTING_PWD=")
-			}
-		}
+				repo := testutil.NewTestRepo(t)
+				repo.CreateFile("README.md", "# Test")
+				repo.Commit("initial commit")
 
-		// With wt.nocd=create, creating new worktree should NOT cd
-		if strings.Contains(newPwd, "nocd-create-fish-new") {
-			t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd) //nostyle:errorstrings
-		}
+				repo.Git("config", "wt.nocd", "create")
 
-		// With wt.nocd=create, switching to existing worktree should cd
-		if !strings.Contains(existingPwd, "nocd-create-fish-new") {
-			t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd) //nostyle:errorstrings
+				branchName := fmt.Sprintf("nocd-create-%s-new", tt.shell)
+				script := tt.scriptFunc(repo.Root, filepath.Dir(binPath), branchName)
+				cmd := exec.Command(tt.shell, "-c", script) //#nosec G204
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Fatalf("%s shell integration with wt.nocd=create config failed: %v\noutput: %s", tt.shell, err, out)
+				}
+
+				output := string(out)
+
+				var newPwd, existingPwd string
+				for _, line := range strings.Split(output, "\n") {
+					if strings.HasPrefix(line, "NEW_PWD=") {
+						newPwd = strings.TrimPrefix(line, "NEW_PWD=")
+					}
+					if strings.HasPrefix(line, "EXISTING_PWD=") {
+						existingPwd = strings.TrimPrefix(line, "EXISTING_PWD=")
+					}
+				}
+
+				if strings.Contains(newPwd, branchName) {
+					t.Errorf("NEW_PWD should NOT contain worktree path when creating new worktree with wt.nocd=create, got: %s", newPwd) //nostyle:errorstrings
+				}
+
+				if !strings.Contains(existingPwd, branchName) {
+					t.Errorf("EXISTING_PWD should contain worktree path when switching to existing worktree with wt.nocd=create, got: %s", existingPwd) //nostyle:errorstrings
+				}
+			})
 		}
 	})
 }
