@@ -72,10 +72,6 @@ Note: The default branch (e.g., main, master) is protected from accidental delet
       - Without worktree: deletion is blocked entirely.
       Use --allow-delete-default to override and delete the branch.
 
-Note: Bare repositories are supported for list and add/switch operations.
-      Delete operation in bare repositories is not yet supported.
-      See https://github.com/k1LoW/git-wt/issues/130 for details.
-
 Shell Integration:
   Add the following to your shell config to enable worktree switching and completion:
 
@@ -217,8 +213,8 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Detect repo context once and thread it through context.
-	// Subsequent calls to DetectRepoContext (via AssertNotBareRepository etc.)
-	// will reuse the cached value instead of spawning git processes again.
+	// Subsequent calls to DetectRepoContext will reuse the cached value
+	// instead of spawning git processes again.
 	rc, err := git.DetectRepoContext(ctx)
 	if err != nil {
 		return err
@@ -231,21 +227,11 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	// Handle delete flags (multiple arguments allowed)
-	// Guard: bare repositories are not supported for delete operation.
-	// Remove this guard when bare delete support is implemented.
 	if forceDeleteFlag {
-		if err := git.AssertNotBareRepository(ctx); err != nil {
-			return err
-		}
-		// Remove duplicates while preserving order
 		args = uniqueArgs(args)
 		return deleteWorktrees(ctx, cmd, args, true)
 	}
 	if deleteFlag {
-		if err := git.AssertNotBareRepository(ctx); err != nil {
-			return err
-		}
-		// Remove duplicates while preserving order
 		args = uniqueArgs(args)
 		return deleteWorktrees(ctx, cmd, args, false)
 	}
@@ -660,6 +646,15 @@ func deleteWorktrees(ctx context.Context, cmd *cobra.Command, branches []string,
 				fmt.Printf("Deleted worktree %q (branch %q did not exist locally)\n", wtDir, wt.Branch)
 			}
 			continue
+		}
+
+		// Check if the target matches the bare repository entry
+		isBareEntry, err := git.IsBareEntry(ctx, branch)
+		if err != nil {
+			return fmt.Errorf("failed to check bare entry: %w", err)
+		}
+		if isBareEntry {
+			return fmt.Errorf("cannot delete bare repository entry %q: the bare repository root cannot be removed as a worktree", branch)
 		}
 
 		// Case 2: No worktree - try to delete branch only

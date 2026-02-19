@@ -1,7 +1,6 @@
 package git
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -243,44 +242,6 @@ func TestIsBareRepository_WorktreeFromBare(t *testing.T) {
 	}
 }
 
-func TestAssertNotBareRepository_NormalRepo(t *testing.T) {
-	repo := testutil.NewTestRepo(t)
-	repo.CreateFile("README.md", "# Test")
-	repo.Commit("initial commit")
-
-	restore := repo.Chdir()
-	defer restore()
-
-	err := AssertNotBareRepository(t.Context())
-	if err != nil {
-		t.Errorf("expected nil from AssertNotBareRepository for normal repo, got: %v", err)
-	}
-}
-
-func TestAssertNotBareRepository_BareRepo(t *testing.T) {
-	bareRepo := testutil.NewBareTestRepo(t)
-
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	if err := os.Chdir(bareRepo.Root); err != nil {
-		t.Fatalf("failed to chdir: %v", err)
-	}
-	defer func() {
-		if err := os.Chdir(origDir); err != nil {
-			t.Fatalf("failed to restore cwd: %v", err)
-		}
-	}()
-
-	err = AssertNotBareRepository(t.Context())
-	if err == nil {
-		t.Fatal("AssertNotBareRepository should return error for bare repo")
-	}
-	if !errors.Is(err, ErrBareRepository) {
-		t.Errorf("expected ErrBareRepository, got: %v", err)
-	}
-}
 
 func TestWithRepoContext_CacheHit(t *testing.T) {
 	repo := testutil.NewTestRepo(t)

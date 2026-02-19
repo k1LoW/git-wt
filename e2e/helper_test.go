@@ -74,3 +74,59 @@ func worktreePath(output string) string {
 	}
 	return lines[len(lines)-1]
 }
+
+// createBareWorktree creates a worktree from the given directory using git-wt
+// and returns the worktree path.
+func createBareWorktree(t *testing.T, binPath, dir, branch string) string {
+	t.Helper()
+
+	stdout, _, err := runGitWtStdout(t, binPath, dir, branch)
+	if err != nil {
+		t.Fatalf("failed to create worktree %q: %v\nstdout: %s", branch, err, stdout)
+	}
+	return worktreePath(stdout)
+}
+
+// commitUnmergedChange creates a file and commits it in the given directory,
+// producing an unmerged commit relative to the parent branch.
+func commitUnmergedChange(t *testing.T, dir string) {
+	t.Helper()
+
+	// Ensure git user config is available (bare repo worktrees may not
+	// inherit user config when GIT_CONFIG_GLOBAL is /dev/null).
+	for _, args := range [][]string{
+		{"config", "user.email", "test@example.com"},
+		{"config", "user.name", "Test User"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git %s failed: %v", strings.Join(args, " "), err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "new.txt"), []byte("content"), 0600); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	cmd := exec.Command("git", "add", "-A")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "unmerged commit")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+}
+
+// assertLastLine checks that the last line of output matches the expected string.
+func assertLastLine(t *testing.T, output, expected string) {
+	t.Helper()
+
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	lastLine := lines[len(lines)-1]
+	if lastLine != expected {
+		t.Errorf("last line should be %q, got %q", expected, lastLine)
+	}
+}

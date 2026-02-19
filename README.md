@@ -20,10 +20,6 @@ The target can be specified as:
 When deleting, the same target types apply: `git wt -d feature-branch`, `git wt -d .`, `git wt -d ../sibling`
 
 > [!NOTE]
-> Bare repositories are not currently supported.
-> Bare repository support is planned: see [#130](https://github.com/k1LoW/git-wt/issues/130) for details.
-
-> [!NOTE]
 > The default branch (e.g., main, master) is protected from accidental deletion.
 > - If the default branch has a worktree, the worktree is deleted but the branch is preserved.
 > - If the default branch has no worktree, deletion is blocked entirely.

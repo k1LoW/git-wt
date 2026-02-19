@@ -197,6 +197,62 @@ func FindWorktreeByBranchOrDir(ctx context.Context, query string) (*Worktree, er
 	return nil, nil
 }
 
+// IsBareEntry checks if the given query (branch name or path) corresponds to
+// the bare repository entry. In bare repos the worktree-list "bare" entry
+// carries no branch field, so we compare against HEAD's symbolic-ref for
+// branch matching, and against the bare entry's path for path matching.
+// Returns false (not an error) for non-bare repositories.
+func IsBareEntry(ctx context.Context, query string) (bool, error) {
+	isBare, err := IsBareRepository(ctx)
+	if err != nil {
+		return false, err
+	}
+	if !isBare {
+		return false, nil
+	}
+
+	// Check branch match: compare against HEAD's symbolic-ref
+	headBranch, err := HeadBranch(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve HEAD branch: %w", err)
+	}
+	if headBranch == query {
+		return true, nil
+	}
+
+	// Check path match: resolve query and compare against bare entry path
+	info, statErr := os.Stat(query)
+	if statErr != nil || !info.IsDir() {
+		return false, nil
+	}
+
+	absPath, err := filepath.Abs(query)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve absolute path for %q: %w", query, err)
+	}
+	if resolved, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = resolved
+	}
+
+	worktrees, err := ListWorktrees(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to list worktrees: %w", err)
+	}
+	for _, w := range worktrees {
+		if w.Bare {
+			wtPath := w.Path
+			if resolved, err := filepath.EvalSymlinks(w.Path); err == nil {
+				wtPath = resolved
+			}
+			if wtPath == absPath {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // WorktreeDirName returns the directory name of a worktree (relative path from base dir).
 func WorktreeDirName(ctx context.Context, wt *Worktree) (string, error) {
 	cfg, err := LoadConfig(ctx)

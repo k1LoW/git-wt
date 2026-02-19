@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -185,6 +186,24 @@ func DefaultBranch(ctx context.Context) (string, error) {
 		configBranch = gitDefaultBranch
 	}
 	return configBranch, nil
+}
+
+// HeadBranch returns the branch name that HEAD points to.
+// Returns an error if HEAD is detached or not a symbolic ref.
+func HeadBranch(ctx context.Context) (string, error) {
+	cmd, err := gitCommand(ctx, "symbolic-ref", "HEAD", "--short")
+	if err != nil {
+		return "", fmt.Errorf("failed to create git command: %w", err)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve HEAD (HEAD may be detached): %w", err)
+	}
+	branch := strings.TrimSpace(string(out))
+	if branch == "" {
+		return "", fmt.Errorf("symbolic-ref HEAD resolved to empty string")
+	}
+	return branch, nil
 }
 
 // IsDefaultBranch checks if the given branch name is the default branch.

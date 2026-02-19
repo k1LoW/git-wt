@@ -3,10 +3,11 @@
 // Covered scenarios:
 //   - List operation: supported in both bare root and worktrees from bare repos
 //   - Add/switch operations: supported in both bare root and worktrees from bare repos
-//   - Delete operation: not yet supported, should return errors
+//   - Delete operation: supported from bare-derived worktrees; bare entry itself is protected
 package e2e
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -392,41 +393,202 @@ func TestE2E_BareRepository(t *testing.T) {
 		}
 	})
 
-	// --- Tests for operations that still don't support bare repositories ---
+}
 
-	t.Run("direct_bare_delete", func(t *testing.T) {
+// TestE2E_BareDelete tests delete operations in bare repository environments.
+func TestE2E_BareDelete(t *testing.T) {
+	t.Parallel()
+	binPath := buildBinary(t)
+
+	// --- Success: delete linked worktree from bare root ---
+
+	t.Run("bare_root_safe_delete", func(t *testing.T) {
 		t.Parallel()
 		bareRepo := testutil.NewBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "feature-del")
 
-		// Run git-wt with -d flag (delete mode) inside the bare repo
-		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", "main")
-		if err == nil {
-			t.Fatalf("expected error for bare repository, but succeeded with output: %s", out)
+		// Safe delete from bare root
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", "feature-del")
+		if err != nil {
+			t.Fatalf("git-wt -d failed: %v\noutput: %s", err, out)
 		}
-		if !strings.Contains(out, "bare") {
-			t.Errorf("error message should mention 'bare', got: %s", out)
+
+		// Worktree should be deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
+		}
+		if !strings.Contains(out, "Deleted") {
+			t.Errorf("output should contain 'Deleted', got: %s", out)
 		}
 	})
 
-	t.Run("worktree_from_bare_delete", func(t *testing.T) {
+	t.Run("bare_root_force_delete", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "unmerged-del")
+		commitUnmergedChange(t, wtPath)
+
+		// Force delete from bare root
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-D", "unmerged-del")
+		if err != nil {
+			t.Fatalf("git-wt -D failed: %v\noutput: %s", err, out)
+		}
+
+		// Worktree should be deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been force deleted")
+		}
+	})
+
+	// --- Error: attempting to delete bare entry itself ---
+
+	t.Run("bare_root_delete_self", func(t *testing.T) {
 		t.Parallel()
 		bareRepo := testutil.NewBareTestRepo(t)
 
-		// Create a worktree from the bare repo
-		wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
-		cmd := exec.Command("git", "-C", bareRepo.Root, "worktree", "add", wtPath, "main")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
-		}
-		t.Cleanup(func() { os.RemoveAll(wtPath) })
-
-		// Run git-wt with -d flag (delete mode) inside the worktree
-		out, err := runGitWt(t, binPath, wtPath, "-d", "main")
+		// Try to delete main (the bare entry's branch) from bare root
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", "main")
 		if err == nil {
-			t.Fatalf("expected error for worktree from bare repo, but succeeded with output: %s", out)
+			t.Fatalf("expected error when deleting bare entry, but succeeded with output: %s", out)
 		}
-		if !strings.Contains(out, "bare") {
-			t.Errorf("error message should mention 'bare', got: %s", out)
+		if !strings.Contains(out, "bare repository entry") {
+			t.Errorf("error message should mention 'bare repository entry', got: %s", out)
+		}
+	})
+
+	t.Run("bare_root_delete_self_dot", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+
+		// Try to delete "." (current directory = bare root) from bare root
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", ".")
+		if err == nil {
+			t.Fatalf("expected error when deleting bare entry via '.', but succeeded with output: %s", out)
+		}
+		if !strings.Contains(out, "bare repository entry") {
+			t.Errorf("error message should mention 'bare repository entry', got: %s", out)
+		}
+	})
+
+	// --- Success: delete from bare-derived worktree ---
+
+	t.Run("bare_worktree_delete_other", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+		wtPathA := createBareWorktree(t, binPath, bareRepo.Root, "wt-a")
+		wtPathB := createBareWorktree(t, binPath, bareRepo.Root, "wt-b")
+
+		// From worktree B, delete worktree A
+		out, err := runGitWt(t, binPath, wtPathB, "-d", "wt-a")
+		if err != nil {
+			t.Fatalf("git-wt -d failed: %v\noutput: %s", err, out)
+		}
+
+		// Worktree A should be deleted
+		if _, err := os.Stat(wtPathA); !os.IsNotExist(err) {
+			t.Error("worktree A should have been deleted")
+		}
+		// Worktree B should still exist
+		if _, err := os.Stat(wtPathB); os.IsNotExist(err) {
+			t.Error("worktree B should still exist")
+		}
+	})
+
+	t.Run("bare_worktree_delete_current", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "current-del")
+
+		// Delete current worktree from inside it (with shell integration)
+		cmd := exec.Command(binPath, "-D", "current-del")
+		cmd.Dir = wtPath
+		cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderrBuf.String())
+		}
+
+		// Worktree should be deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
+		}
+
+		// Shell integration should output bare root path
+		assertLastLine(t, stdoutBuf.String(), bareRepo.Root)
+	})
+
+	// --- Delete last worktree, cd back to bare root ---
+
+	t.Run("bare_delete_last_worktree_cd", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "only-wt")
+
+		// Delete from inside the worktree (with shell integration)
+		cmd := exec.Command(binPath, "-D", "only-wt")
+		cmd.Dir = wtPath
+		cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
+		var stdoutBuf, stderrBuf bytes.Buffer
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderrBuf.String())
+		}
+
+		// Worktree should be deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
+		}
+
+		// Shell integration should output bare root path
+		assertLastLine(t, stdoutBuf.String(), bareRepo.Root)
+	})
+
+	// --- Error: modified files ---
+
+	t.Run("bare_worktree_delete_modified", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "mod-wt")
+
+		// Add an untracked file
+		if err := os.WriteFile(filepath.Join(wtPath, "untracked.txt"), []byte("content"), 0600); err != nil {
+			t.Fatalf("failed to create untracked file: %v", err)
+		}
+
+		// Safe delete should fail
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", "mod-wt")
+		if err == nil {
+			t.Fatal("git-wt -d should fail when worktree has untracked files")
+		}
+		if !strings.Contains(out, "use -D to force deletion") {
+			t.Errorf("error should suggest '-D to force deletion', got: %s", out)
+		}
+
+		// Worktree should still exist
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Error("worktree should NOT have been deleted")
+		}
+	})
+
+	// --- dotgit bare variant ---
+
+	t.Run("dotgit_bare_delete", func(t *testing.T) {
+		t.Parallel()
+		bareRepo := testutil.NewDotGitBareTestRepo(t)
+		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "dotgit-del")
+
+		// Safe delete from bare root
+		out, err := runGitWt(t, binPath, bareRepo.Root, "-d", "dotgit-del")
+		if err != nil {
+			t.Fatalf("git-wt -d failed: %v\noutput: %s", err, out)
+		}
+
+		// Worktree should be deleted
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Error("worktree should have been deleted")
 		}
 	})
 }
