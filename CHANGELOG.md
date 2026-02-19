@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.25.0](https://github.com/k1LoW/git-wt/compare/v0.24.0...v0.25.0) - 2026-02-19
+### New Features 🎉
+- feat: support delete operation in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/150
+### Other Changes
+- chore(deps): bump Songmu/tagpr from 1.15.0 to 1.17.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/151
+
 ## [v0.24.0](https://github.com/k1LoW/git-wt/compare/v0.23.0...v0.24.0) - 2026-02-17
 ### New Features 🎉
 - feat: support add/switch operations in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/147
