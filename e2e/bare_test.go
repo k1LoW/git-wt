@@ -7,7 +7,6 @@
 package e2e
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -97,11 +96,7 @@ func TestE2E_BareRepository(t *testing.T) {
 
 		// Create a worktree from the bare repo using raw git command
 		wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
-		cmd := exec.Command("git", "-C", bareRepo.Root, "worktree", "add", wtPath, "main")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
-		}
-		t.Cleanup(func() { os.RemoveAll(wtPath) })
+		addRawWorktreeFromBare(t, bareRepo.Root, wtPath, "main")
 
 		// Run git-wt with no arguments (list mode) inside the worktree
 		out, err := runGitWt(t, binPath, wtPath)
@@ -123,11 +118,7 @@ func TestE2E_BareRepository(t *testing.T) {
 
 		// Create a worktree from the bare repo
 		wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
-		cmd := exec.Command("git", "-C", bareRepo.Root, "worktree", "add", wtPath, "main")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
-		}
-		t.Cleanup(func() { os.RemoveAll(wtPath) })
+		addRawWorktreeFromBare(t, bareRepo.Root, wtPath, "main")
 
 		// Run git-wt from the worktree - worktree entry should have * marker, bare entry should not
 		out, err := runGitWt(t, binPath, wtPath)
@@ -204,13 +195,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for bare repository add, but got error: %v\nstdout: %s", err, stdout)
 		}
 		wtPath := worktreePath(stdout)
-		if wtPath == "" {
-			t.Fatal("expected worktree path in stdout, got empty")
-		}
-		// Verify the worktree directory exists
-		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			t.Fatalf("worktree directory should exist at %s", wtPath)
-		}
+		assertWorktreeExists(t, wtPath)
 	})
 
 	t.Run("direct_bare_add_existing_branch", func(t *testing.T) {
@@ -229,12 +214,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for bare repository add with existing branch, but got error: %v\nstdout: %s", err, stdout)
 		}
 		wtPath := worktreePath(stdout)
-		if wtPath == "" {
-			t.Fatal("expected worktree path in stdout, got empty")
-		}
-		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			t.Fatalf("worktree directory should exist at %s", wtPath)
-		}
+		assertWorktreeExists(t, wtPath)
 	})
 
 	t.Run("direct_bare_add_with_start_point", func(t *testing.T) {
@@ -247,12 +227,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for bare repository add with start-point, but got error: %v\nstdout: %s", err, stdout)
 		}
 		wtPath := worktreePath(stdout)
-		if wtPath == "" {
-			t.Fatal("expected worktree path in stdout, got empty")
-		}
-		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			t.Fatalf("worktree directory should exist at %s", wtPath)
-		}
+		assertWorktreeExists(t, wtPath)
 	})
 
 	t.Run("direct_bare_switch_existing", func(t *testing.T) {
@@ -287,12 +262,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for dotgit bare repository add, but got error: %v\nstdout: %s", err, stdout)
 		}
 		wtPath := worktreePath(stdout)
-		if wtPath == "" {
-			t.Fatal("expected worktree path in stdout, got empty")
-		}
-		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-			t.Fatalf("worktree directory should exist at %s", wtPath)
-		}
+		assertWorktreeExists(t, wtPath)
 	})
 
 	// --- Tests running inside a worktree created from a bare repository ---
@@ -303,11 +273,7 @@ func TestE2E_BareRepository(t *testing.T) {
 
 		// Create a worktree from the bare repo
 		wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
-		cmd := exec.Command("git", "-C", bareRepo.Root, "worktree", "add", wtPath, "main")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
-		}
-		t.Cleanup(func() { os.RemoveAll(wtPath) })
+		addRawWorktreeFromBare(t, bareRepo.Root, wtPath, "main")
 
 		// Run git-wt with a branch name (add mode) inside the worktree
 		// Should succeed: bare-derived worktrees support add
@@ -316,12 +282,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("expected success for worktree from bare repo add, but got error: %v\nstdout: %s", err, stdout)
 		}
 		newWtPath := worktreePath(stdout)
-		if newWtPath == "" {
-			t.Fatal("expected worktree path in stdout, got empty")
-		}
-		if _, err := os.Stat(newWtPath); os.IsNotExist(err) {
-			t.Fatalf("new worktree directory should exist at %s", newWtPath)
-		}
+		assertWorktreeExists(t, newWtPath)
 	})
 
 	t.Run("worktree_from_bare_add_copies_files", func(t *testing.T) {
@@ -330,11 +291,7 @@ func TestE2E_BareRepository(t *testing.T) {
 
 		// Create a worktree from the bare repo
 		wtPath := filepath.Join(bareRepo.ParentDir(), "wt-main")
-		cmd := exec.Command("git", "-C", bareRepo.Root, "worktree", "add", wtPath, "main")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
-		}
-		t.Cleanup(func() { os.RemoveAll(wtPath) })
+		addRawWorktreeFromBare(t, bareRepo.Root, wtPath, "main")
 
 		// Create an untracked file in the source worktree to test copy behavior
 		if err := os.WriteFile(filepath.Join(wtPath, "untracked.txt"), []byte("test content\n"), 0600); err != nil {
@@ -375,12 +332,7 @@ func TestE2E_BareRepository(t *testing.T) {
 			t.Fatalf("failed to create worktree B from worktree A: %v\nstdout: %s", err, stdoutB)
 		}
 		wtPathB := worktreePath(stdoutB)
-		if wtPathB == "" {
-			t.Fatal("expected worktree B path in stdout, got empty")
-		}
-		if _, err := os.Stat(wtPathB); os.IsNotExist(err) {
-			t.Fatalf("worktree B directory should exist at %s", wtPathB)
-		}
+		assertWorktreeExists(t, wtPathB)
 
 		// Step 3: Switch back to A from bare root (should return existing path)
 		stdoutSwitch, _, err := runGitWtStdout(t, binPath, bareRepo.Root, "feature-a")
@@ -414,9 +366,7 @@ func TestE2E_BareDelete(t *testing.T) {
 		}
 
 		// Worktree should be deleted
-		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
-			t.Error("worktree should have been deleted")
-		}
+		assertWorktreeDeleted(t, wtPath)
 		if !strings.Contains(out, "Deleted") {
 			t.Errorf("output should contain 'Deleted', got: %s", out)
 		}
@@ -435,9 +385,7 @@ func TestE2E_BareDelete(t *testing.T) {
 		}
 
 		// Worktree should be deleted
-		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
-			t.Error("worktree should have been force deleted")
-		}
+		assertWorktreeDeleted(t, wtPath)
 	})
 
 	// --- Error: attempting to delete bare entry itself ---
@@ -485,9 +433,7 @@ func TestE2E_BareDelete(t *testing.T) {
 		}
 
 		// Worktree A should be deleted
-		if _, err := os.Stat(wtPathA); !os.IsNotExist(err) {
-			t.Error("worktree A should have been deleted")
-		}
+		assertWorktreeDeleted(t, wtPathA)
 		// Worktree B should still exist
 		if _, err := os.Stat(wtPathB); os.IsNotExist(err) {
 			t.Error("worktree B should still exist")
@@ -500,23 +446,16 @@ func TestE2E_BareDelete(t *testing.T) {
 		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "current-del")
 
 		// Delete current worktree from inside it (with shell integration)
-		cmd := exec.Command(binPath, "-D", "current-del")
-		cmd.Dir = wtPath
-		cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
-		var stdoutBuf, stderrBuf bytes.Buffer
-		cmd.Stdout = &stdoutBuf
-		cmd.Stderr = &stderrBuf
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderrBuf.String())
+		stdout, stderr, err := runGitWtWithShellIntegration(t, binPath, wtPath, "-D", "current-del")
+		if err != nil {
+			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderr)
 		}
 
 		// Worktree should be deleted
-		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
-			t.Error("worktree should have been deleted")
-		}
+		assertWorktreeDeleted(t, wtPath)
 
 		// Shell integration should output bare root path
-		assertLastLine(t, stdoutBuf.String(), bareRepo.Root)
+		assertLastLine(t, stdout, bareRepo.Root)
 	})
 
 	// --- Delete last worktree, cd back to bare root ---
@@ -527,23 +466,16 @@ func TestE2E_BareDelete(t *testing.T) {
 		wtPath := createBareWorktree(t, binPath, bareRepo.Root, "only-wt")
 
 		// Delete from inside the worktree (with shell integration)
-		cmd := exec.Command(binPath, "-D", "only-wt")
-		cmd.Dir = wtPath
-		cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
-		var stdoutBuf, stderrBuf bytes.Buffer
-		cmd.Stdout = &stdoutBuf
-		cmd.Stderr = &stderrBuf
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderrBuf.String())
+		stdout, stderr, err := runGitWtWithShellIntegration(t, binPath, wtPath, "-D", "only-wt")
+		if err != nil {
+			t.Fatalf("git-wt -D failed: %v\nstderr: %s", err, stderr)
 		}
 
 		// Worktree should be deleted
-		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
-			t.Error("worktree should have been deleted")
-		}
+		assertWorktreeDeleted(t, wtPath)
 
 		// Shell integration should output bare root path
-		assertLastLine(t, stdoutBuf.String(), bareRepo.Root)
+		assertLastLine(t, stdout, bareRepo.Root)
 	})
 
 	// --- Error: modified files ---
@@ -587,8 +519,6 @@ func TestE2E_BareDelete(t *testing.T) {
 		}
 
 		// Worktree should be deleted
-		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
-			t.Error("worktree should have been deleted")
-		}
+		assertWorktreeDeleted(t, wtPath)
 	})
 }

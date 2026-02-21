@@ -5,7 +5,11 @@
 //   - runGitWt: executes git-wt and returns combined output
 //   - runGitWtStdout: executes git-wt and returns stdout/stderr separately
 //   - runGitWtWithStderr: executes git-wt with isolated HOME and returns stdout/stderr separately
+//   - runGitWtWithShellIntegration: executes git-wt with GIT_WT_SHELL_INTEGRATION=1
 //   - worktreePath: extracts worktree path from command output
+//   - addRawWorktreeFromBare: creates a worktree via raw git command
+//   - assertWorktreeExists: asserts that a worktree directory exists
+//   - assertWorktreeDeleted: asserts that a worktree directory has been removed
 package e2e
 
 import (
@@ -134,6 +138,50 @@ func commitUnmergedChange(t *testing.T, dir string) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("git commit failed: %v", err)
 	}
+}
+
+// addRawWorktreeFromBare creates a worktree from a bare repository using a raw
+// git worktree add command and registers cleanup to remove it.
+func addRawWorktreeFromBare(t *testing.T, root, wtPath, branch string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", root, "worktree", "add", wtPath, branch)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add failed: %v\noutput: %s", err, out)
+	}
+	t.Cleanup(func() { os.RemoveAll(wtPath) })
+}
+
+// assertWorktreeExists asserts that path is non-empty and the directory exists.
+func assertWorktreeExists(t *testing.T, path string) {
+	t.Helper()
+	if path == "" {
+		t.Fatal("expected worktree path in stdout, got empty")
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Fatalf("worktree directory should exist at %s", path)
+	}
+}
+
+// assertWorktreeDeleted asserts that the worktree directory no longer exists.
+func assertWorktreeDeleted(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("worktree directory should have been deleted: %s", path)
+	}
+}
+
+// runGitWtWithShellIntegration runs git-wt with GIT_WT_SHELL_INTEGRATION=1
+// and returns stdout, stderr, and the error.
+func runGitWtWithShellIntegration(t *testing.T, binPath, dir string, args ...string) (string, string, error) {
+	t.Helper()
+	cmd := exec.Command(binPath, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_WT_SHELL_INTEGRATION=1")
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	err := cmd.Run()
+	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
 // assertLastLine checks that the last line of output matches the expected string.

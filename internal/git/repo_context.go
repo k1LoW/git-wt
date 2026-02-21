@@ -102,27 +102,6 @@ func IsBareRepository(ctx context.Context) (bool, error) {
 	return rc.bare, nil
 }
 
-
-// IsNormalMain reports whether the current directory is the main working tree
-// of a normal (non-bare) repository.
-func IsNormalMain(ctx context.Context) (bool, error) {
-	rc, err := DetectRepoContext(ctx)
-	if err != nil {
-		return false, err
-	}
-	return !rc.bare && !rc.worktree, nil
-}
-
-// IsNormalWorktree reports whether the current directory is a linked worktree
-// of a normal (non-bare) repository.
-func IsNormalWorktree(ctx context.Context) (bool, error) {
-	rc, err := DetectRepoContext(ctx)
-	if err != nil {
-		return false, err
-	}
-	return !rc.bare && rc.worktree, nil
-}
-
 // IsBareRoot reports whether the current directory is a bare repository root
 // (no working tree).
 func IsBareRoot(ctx context.Context) (bool, error) {
@@ -131,16 +110,6 @@ func IsBareRoot(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return rc.bare && !rc.worktree, nil
-}
-
-// IsBareWorktree reports whether the current directory is a linked worktree
-// created from a bare repository.
-func IsBareWorktree(ctx context.Context) (bool, error) {
-	rc, err := DetectRepoContext(ctx)
-	if err != nil {
-		return false, err
-	}
-	return rc.bare && rc.worktree, nil
 }
 
 // gitDirs returns the git-dir and git-common-dir for the current repository.
