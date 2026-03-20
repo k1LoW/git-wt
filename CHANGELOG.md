@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.25.1](https://github.com/k1LoW/git-wt/compare/v0.25.0...v0.25.1) - 2026-03-20
+### Other Changes
+- refactor: extract test helpers in e2e/bare_test.go by @usadamasa in https://github.com/k1LoW/git-wt/pull/153
+- chore(deps): bump github.com/go-git/go-git/v5 from 5.16.5 to 5.17.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/156
+- chore(deps): bump the dependencies group with 4 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/157
+- chore(deps): bump aquasecurity/trivy-action from 0.34.1 to 0.34.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/158
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/159
+- chore(deps): bump aquasecurity/trivy-action from 0.34.2 to 0.35.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/160
+- chore(deps): bump reviewdog/action-golangci-lint from 2.8.0 to 2.10.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/161
+
 ## [v0.25.0](https://github.com/k1LoW/git-wt/compare/v0.24.0...v0.25.0) - 2026-02-19
 ### New Features 🎉
 - feat: support delete operation in bare repositories by @usadamasa in https://github.com/k1LoW/git-wt/pull/150
