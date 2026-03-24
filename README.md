@@ -256,6 +256,26 @@ $ git wt --nocd feature-branch
 > - The `--nocd` flag always prevents cd regardless of config value.
 > - Using `--nocd` with `--init` disables the `git()` wrapper entirely (only shell completion is output). The `wt.nocd` config does not affect `--init` output.
 
+#### `wt.nogitignore`
+
+Do not create `.gitignore` in the worktree base directory.
+
+``` console
+$ git config wt.nogitignore true
+```
+
+Default: `false`
+
+#### `wt.noreadme`
+
+Do not create `README.md` in the worktree base directory.
+
+``` console
+$ git config wt.noreadme true
+```
+
+Default: `false`
+
 #### `wt.relative` / `--relative`
 
 Append the current subdirectory path to the worktree output path. When running from a subdirectory, the output path will include the subdirectory relative to the repository root (like `git diff --relative`).

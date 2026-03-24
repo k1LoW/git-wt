@@ -277,7 +277,7 @@ func TestAddWorktree(t *testing.T) {
 	defer restore()
 
 	wtPath := filepath.Join(repo.ParentDir(), "worktree-existing")
-	err := AddWorktree(t.Context(), wtPath, "existing-branch", CopyOptions{})
+	err := AddWorktree(t.Context(), wtPath, "existing-branch", Config{})
 	if err != nil {
 		t.Fatalf("AddWorktree failed: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestAddWorktreeWithNewBranch(t *testing.T) {
 	defer restore()
 
 	wtPath := filepath.Join(repo.ParentDir(), "worktree-new")
-	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "new-branch", "", CopyOptions{})
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "new-branch", "", Config{})
 	if err != nil {
 		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
 	}
@@ -353,6 +353,54 @@ func TestAddWorktreeWithNewBranch(t *testing.T) {
 	}
 }
 
+func TestAddWorktree_NoGitignore(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	repo.Git("branch", "existing-branch")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-no-gitignore")
+	err := AddWorktree(t.Context(), wtPath, "existing-branch", Config{NoGitignore: true})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	baseDir := filepath.Dir(wtPath)
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); !os.IsNotExist(err) {
+		t.Error(".gitignore should not be created when NoGitignore is true")
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); os.IsNotExist(err) {
+		t.Error("README.md should still be created when only NoGitignore is true")
+	}
+}
+
+func TestAddWorktree_NoReadme(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	repo.Git("branch", "existing-branch")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-no-readme")
+	err := AddWorktree(t.Context(), wtPath, "existing-branch", Config{NoReadme: true})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	baseDir := filepath.Dir(wtPath)
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); os.IsNotExist(err) {
+		t.Error(".gitignore should still be created when only NoReadme is true")
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); !os.IsNotExist(err) {
+		t.Error("README.md should not be created when NoReadme is true")
+	}
+}
+
 func TestAddWorktree_FromBareRepository(t *testing.T) {
 	bareRepo := testutil.NewBareTestRepo(t)
 
@@ -370,7 +418,7 @@ func TestAddWorktree_FromBareRepository(t *testing.T) {
 	}()
 
 	wtPath := filepath.Join(bareRepo.ParentDir(), "wt-existing")
-	err = AddWorktree(t.Context(), wtPath, "main", CopyOptions{})
+	err = AddWorktree(t.Context(), wtPath, "main", Config{})
 	if err != nil {
 		t.Fatalf("AddWorktree from bare repo failed: %v", err)
 	}
@@ -414,7 +462,7 @@ func TestAddWorktreeWithNewBranch_FromBareRepository(t *testing.T) {
 	}()
 
 	wtPath := filepath.Join(bareRepo.ParentDir(), "wt-new-branch")
-	err = AddWorktreeWithNewBranch(t.Context(), wtPath, "new-feature", "", CopyOptions{})
+	err = AddWorktreeWithNewBranch(t.Context(), wtPath, "new-feature", "", Config{})
 	if err != nil {
 		t.Fatalf("AddWorktreeWithNewBranch from bare repo failed: %v", err)
 	}

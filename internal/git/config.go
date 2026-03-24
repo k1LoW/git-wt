@@ -22,6 +22,8 @@ const (
 	configKeyRemover       = "wt.remover"
 	configKeyNoCd          = "wt.nocd"
 	configKeyRelative      = "wt.relative"
+	configKeyNoGitignore   = "wt.nogitignore"
+	configKeyNoReadme      = "wt.noreadme"
 )
 
 // Config holds all wt configuration values.
@@ -37,6 +39,8 @@ type Config struct {
 	Remover       string
 	NoCd          bool
 	Relative      bool
+	NoGitignore   bool
+	NoReadme      bool
 }
 
 // GitConfig retrieves all git config values for a key.
@@ -147,6 +151,20 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		return cfg, err
 	}
 	cfg.Relative = len(val) > 0 && val[len(val)-1] == "true"
+
+	// NoGitignore
+	val, err = GitConfig(ctx, configKeyNoGitignore)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.NoGitignore = len(val) > 0 && val[len(val)-1] == "true"
+
+	// NoReadme
+	val, err = GitConfig(ctx, configKeyNoReadme)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.NoReadme = len(val) > 0 && val[len(val)-1] == "true"
 
 	return cfg, nil
 }

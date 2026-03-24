@@ -127,6 +127,30 @@ func TestLoadConfig(t *testing.T) {
 	if !cfg.NoCd {
 		t.Errorf("LoadConfig().NoCd = %v, want true", cfg.NoCd)
 	}
+
+	// Test defaults for NoGitignore and NoReadme
+	if cfg.NoGitignore {
+		t.Errorf("LoadConfig().NoGitignore default = %v, want false", cfg.NoGitignore)
+	}
+	if cfg.NoReadme {
+		t.Errorf("LoadConfig().NoReadme default = %v, want false", cfg.NoReadme)
+	}
+
+	// Test NoGitignore and NoReadme settings
+	repo.Git("config", "wt.nogitignore", "true")
+	repo.Git("config", "wt.noreadme", "true")
+
+	cfg, err = LoadConfig(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cfg.NoGitignore {
+		t.Errorf("LoadConfig().NoGitignore = %v, want true", cfg.NoGitignore)
+	}
+	if !cfg.NoReadme {
+		t.Errorf("LoadConfig().NoReadme = %v, want true", cfg.NoReadme)
+	}
 }
 
 func TestExpandPath(t *testing.T) {

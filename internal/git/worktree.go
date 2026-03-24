@@ -281,7 +281,7 @@ type addWorktreeContext struct {
 
 // prepareAdd detects the repository type (bare vs normal), determines the
 // copy source worktree root, and initializes the destination parent directory.
-func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
+func prepareAdd(ctx context.Context, path string, cfg Config) (*addWorktreeContext, error) {
 	isBareRoot, err := IsBareRoot(ctx)
 	if err != nil {
 		return nil, err
@@ -299,7 +299,7 @@ func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	if err := initBaseDir(parentDir); err != nil {
+	if err := initBaseDir(parentDir, cfg); err != nil {
 		return nil, err
 	}
 
@@ -308,9 +308,17 @@ func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
 
 // copyAfterAdd copies files from the current worktree to the newly created worktree.
 // It is a no-op when running from a bare root (no working tree to copy from).
-func copyAfterAdd(ctx context.Context, ac *addWorktreeContext, dstPath string, copyOpts CopyOptions) error {
+func copyAfterAdd(ctx context.Context, ac *addWorktreeContext, dstPath string, cfg Config) error {
 	if ac.isBareRoot {
 		return nil
+	}
+
+	copyOpts := CopyOptions{
+		CopyIgnored:   cfg.CopyIgnored,
+		CopyUntracked: cfg.CopyUntracked,
+		CopyModified:  cfg.CopyModified,
+		NoCopy:        cfg.NoCopy,
+		Copy:          cfg.Copy,
 	}
 
 	// Exclude basedir from copy to prevent circular copying, but only when
@@ -333,8 +341,8 @@ func copyAfterAdd(ctx context.Context, ac *addWorktreeContext, dstPath string, c
 }
 
 // AddWorktree creates a new worktree for the given branch.
-func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
-	ac, err := prepareAdd(ctx, path)
+func AddWorktree(ctx context.Context, path, branch string, cfg Config) error {
+	ac, err := prepareAdd(ctx, path, cfg)
 	if err != nil {
 		return err
 	}
@@ -349,13 +357,13 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 		return err
 	}
 
-	return copyAfterAdd(ctx, ac, path, copyOpts)
+	return copyAfterAdd(ctx, ac, path, cfg)
 }
 
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.
 // If startPoint is specified, the new branch will be created from that commit/branch.
-func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint string, copyOpts CopyOptions) error {
-	ac, err := prepareAdd(ctx, path)
+func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint string, cfg Config) error {
+	ac, err := prepareAdd(ctx, path, cfg)
 	if err != nil {
 		return err
 	}
@@ -375,17 +383,23 @@ func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint stri
 		return err
 	}
 
-	return copyAfterAdd(ctx, ac, path, copyOpts)
+	return copyAfterAdd(ctx, ac, path, cfg)
 }
 
 // initBaseDir initializes the basedir with .gitignore and README.md files.
 // It creates these files only if they don't already exist.
-func initBaseDir(baseDir string) error {
-	gitignorePath := filepath.Join(baseDir, ".gitignore")
-	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
-		if err := os.WriteFile(gitignorePath, []byte("*\n"), 0600); err != nil {
-			return fmt.Errorf("failed to create .gitignore: %w", err)
+func initBaseDir(baseDir string, cfg Config) error {
+	if !cfg.NoGitignore {
+		gitignorePath := filepath.Join(baseDir, ".gitignore")
+		if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+			if err := os.WriteFile(gitignorePath, []byte("*\n"), 0600); err != nil {
+				return fmt.Errorf("failed to create .gitignore: %w", err)
+			}
 		}
+	}
+
+	if cfg.NoReadme {
+		return nil
 	}
 
 	readmePath := filepath.Join(baseDir, "README.md")

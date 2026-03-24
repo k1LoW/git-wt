@@ -710,15 +710,6 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 		}
 	}
 
-	// Build copy options from config
-	copyOpts := git.CopyOptions{
-		CopyIgnored:   cfg.CopyIgnored,
-		CopyUntracked: cfg.CopyUntracked,
-		CopyModified:  cfg.CopyModified,
-		NoCopy:        cfg.NoCopy,
-		Copy:          cfg.Copy,
-	}
-
 	// Check if worktree already exists for this branch or directory name
 	wt, err := git.FindWorktreeByBranchOrDir(ctx, branch)
 	if err != nil {
@@ -747,12 +738,12 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 	if exists {
 		// Branch exists, create worktree with existing branch
 		// start-point is ignored when using existing branch
-		if err := git.AddWorktree(ctx, wtPath, branch, copyOpts); err != nil {
+		if err := git.AddWorktree(ctx, wtPath, branch, cfg); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
 	} else {
 		// Branch doesn't exist, create new branch and worktree
-		if err := git.AddWorktreeWithNewBranch(ctx, wtPath, branch, startPoint, copyOpts); err != nil {
+		if err := git.AddWorktreeWithNewBranch(ctx, wtPath, branch, startPoint, cfg); err != nil {
 			return fmt.Errorf("failed to create worktree with new branch: %w", err)
 		}
 	}
