@@ -1,9 +1,8 @@
-//go:build darwin
+//go:build linux
 
-// macOS implementation using clonefile(2) for APFS Copy-on-Write.
-// clonefile creates a lightweight clone that shares data blocks until modified,
-// making copies nearly instantaneous regardless of file size.
-// Falls back to traditional io.Copy when clonefile fails (non-APFS, cross-device, etc.).
+// Linux implementation using FICLONE ioctl for CoW reflink on supported
+// filesystems (Btrfs, XFS with reflink). Falls back to io.Copy which
+// internally uses copy_file_range(2) for efficient in-kernel copying.
 
 package git
 
@@ -29,29 +28,38 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	if err := unix.Clonefile(src, dst, unix.CLONE_NOFOLLOW); err == nil {
-		return os.Chmod(dst, srcInfo.Mode())
+	if err := copyFileClone(src, dst, srcInfo); err == nil {
+		return nil
 	}
 
 	return copyFileTraditional(src, dst, srcInfo)
 }
 
-// copyDir clones an entire directory tree using clonefile(2).
-// On APFS this is a single syscall that creates a CoW clone of the whole tree.
-// Falls back to recursive file-by-file copy on failure.
-func copyDir(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+// copyFileClone attempts a CoW reflink via FICLONE ioctl.
+func copyFileClone(src, dst string, srcInfo os.FileInfo) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if err := unix.IoctlFileClone(int(out.Fd()), int(in.Fd())); err != nil {
+		os.Remove(dst)
 		return err
 	}
 
-	if err := unix.Clonefile(src, dst, unix.CLONE_NOFOLLOW); err == nil {
-		return nil
-	}
-
-	return copyDirWalk(src, dst)
+	return os.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime())
 }
 
-func copyDirWalk(src, dst string) error {
+// copyDir copies a directory tree using file-by-file CoW clone with fallback.
+// Linux has no directory-level clonefile equivalent, so we walk and clone each file.
+func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
