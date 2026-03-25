@@ -15,7 +15,7 @@ import (
 )
 
 func copyFile(src, dst string) error {
-	srcInfo, err := os.Stat(src)
+	srcInfo, err := os.Stat(src) //nolint:gosec // internal function, paths are constructed from trusted sources
 	if err != nil {
 		return err
 	}
@@ -37,19 +37,19 @@ func copyFile(src, dst string) error {
 
 // copyFileClone attempts a CoW reflink via FICLONE ioctl.
 func copyFileClone(src, dst string, srcInfo os.FileInfo) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) //nolint:gosec // internal function, paths are constructed from trusted sources
 	if err != nil {
 		return err
 	}
 	defer in.Close()
 
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode()) //nolint:gosec // internal function, paths are constructed from trusted sources
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	if err := unix.IoctlFileClone(int(out.Fd()), int(in.Fd())); err != nil {
+	if err := unix.IoctlFileClone(int(out.Fd()), int(in.Fd())); err != nil { //nolint:gosec // file descriptors are small positive integers
 		os.Remove(dst)
 		return err
 	}

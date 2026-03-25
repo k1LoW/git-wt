@@ -622,7 +622,7 @@ func TestCopyDir_IndependentOfSource(t *testing.T) {
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(p, []byte("original"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("original"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -631,7 +631,7 @@ func TestCopyDir_IndependentOfSource(t *testing.T) {
 	}
 
 	// Modify source after copy
-	if err := os.WriteFile(p, []byte("modified"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("modified"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -785,7 +785,7 @@ func createLargeNodeModules(b *testing.B, baseDir string, numPackages int) []str
 	jsContent := []byte("'use strict'; module.exports = function() { return 'hello world'; };")
 	jsonContent := []byte(`{"name":"pkg","version":"1.0.0","main":"index.js"}`)
 	readmeContent := []byte("# Package\nThis is a test package for benchmarking.")
-	licenceContent := []byte("MIT License\nCopyright (c) 2024")
+	licenseContent := []byte("MIT License\nCopyright (c) 2024")
 	mapContent := make([]byte, 4096)
 
 	var files []string
@@ -802,11 +802,11 @@ func createLargeNodeModules(b *testing.B, baseDir string, numPackages int) []str
 			{"index.js", jsContent},
 			{"package.json", jsonContent},
 			{"README.md", readmeContent},
-			{"LICENCE", licenceContent},
+			{"LICENSE", licenseContent},
 			{"index.js.map", mapContent},
 		} {
 			p := filepath.Join(pkgDir, f.name)
-			if err := os.WriteFile(p, f.content, 0644); err != nil {
+			if err := os.WriteFile(p, f.content, 0600); err != nil {
 				b.Fatal(err)
 			}
 			rel, _ := filepath.Rel(baseDir, p)
