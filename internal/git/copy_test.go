@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -556,6 +557,179 @@ func TestCopyFile_PreservesTimestamps(t *testing.T) {
 	}
 }
 
+func TestCopyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcDir := filepath.Join(tmpDir, "src")
+	dstDir := filepath.Join(tmpDir, "dst")
+
+	// Create source directory tree
+	for _, f := range []struct {
+		path    string
+		content string
+		mode    os.FileMode
+	}{
+		{"a.txt", "file a", 0644},
+		{"sub/b.txt", "file b", 0755},
+		{"sub/deep/c.txt", "file c", 0600},
+	} {
+		p := filepath.Join(srcDir, f.path)
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(f.content), f.mode); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := copyDir(srcDir, dstDir); err != nil {
+		t.Fatalf("copyDir failed: %v", err)
+	}
+
+	for _, f := range []struct {
+		path    string
+		content string
+		mode    os.FileMode
+	}{
+		{"a.txt", "file a", 0644},
+		{"sub/b.txt", "file b", 0755},
+		{"sub/deep/c.txt", "file c", 0600},
+	} {
+		p := filepath.Join(dstDir, f.path)
+		got, err := os.ReadFile(p)
+		if err != nil {
+			t.Errorf("file %s not found: %v", f.path, err)
+			continue
+		}
+		if string(got) != f.content {
+			t.Errorf("%s content = %q, want %q", f.path, got, f.content)
+		}
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != f.mode {
+			t.Errorf("%s mode = %v, want %v", f.path, info.Mode().Perm(), f.mode)
+		}
+	}
+}
+
+func TestCopyDir_IndependentOfSource(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcDir := filepath.Join(tmpDir, "src")
+	dstDir := filepath.Join(tmpDir, "dst")
+
+	p := filepath.Join(srcDir, "file.txt")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("original"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := copyDir(srcDir, dstDir); err != nil {
+		t.Fatalf("copyDir failed: %v", err)
+	}
+
+	// Modify source after copy
+	if err := os.WriteFile(p, []byte("modified"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dstDir, "file.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "original" {
+		t.Errorf("destination was affected by source modification: got %q, want %q", got, "original")
+	}
+}
+
+func TestCopyFilesToWorktree_DirectoryLevelCopy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "node_modules/\n")
+	repo.Commit("initial commit")
+
+	// Create ignored directory with multiple files (simulating node_modules)
+	repo.CreateFile("node_modules/pkg-a/index.js", "module.exports = 'a'")
+	repo.CreateFile("node_modules/pkg-a/package.json", `{"name": "pkg-a"}`)
+	repo.CreateFile("node_modules/pkg-b/index.js", "module.exports = 'b'")
+	repo.CreateFile("node_modules/.package-lock.json", "{}")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	opts := CopyOptions{CopyIgnored: true}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	for _, file := range []string{
+		"node_modules/pkg-a/index.js",
+		"node_modules/pkg-a/package.json",
+		"node_modules/pkg-b/index.js",
+		"node_modules/.package-lock.json",
+	} {
+		dstPath := filepath.Join(dstDir, file)
+		if _, err := os.Stat(dstPath); os.IsNotExist(err) {
+			t.Errorf("file %q was not copied", file)
+		}
+	}
+
+	// Verify content
+	got, err := os.ReadFile(filepath.Join(dstDir, "node_modules/pkg-a/index.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "module.exports = 'a'" {
+		t.Errorf("content = %q, want %q", got, "module.exports = 'a'")
+	}
+}
+
+func TestCopyFilesToWorktree_DirectoryLevelCopy_WithNoCopy(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "node_modules/\n")
+	repo.Commit("initial commit")
+
+	repo.CreateFile("node_modules/pkg-a/index.js", "module.exports = 'a'")
+	repo.CreateFile("node_modules/pkg-b/index.js", "module.exports = 'b'")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// NoCopy excludes some files in node_modules — should fall back to file-by-file
+	opts := CopyOptions{
+		CopyIgnored: true,
+		NoCopy:      []string{"node_modules/pkg-b/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// pkg-a should be copied
+	if _, err := os.Stat(filepath.Join(dstDir, "node_modules/pkg-a/index.js")); os.IsNotExist(err) {
+		t.Error("node_modules/pkg-a/index.js should have been copied")
+	}
+
+	// pkg-b should NOT be copied (NoCopy)
+	if _, err := os.Stat(filepath.Join(dstDir, "node_modules/pkg-b/index.js")); !os.IsNotExist(err) {
+		t.Error("node_modules/pkg-b/index.js should NOT have been copied")
+	}
+}
+
 func TestCopyFilesToWorktree_ExcludeDirs(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
@@ -601,5 +775,128 @@ func TestCopyFilesToWorktree_ExcludeDirs(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dstDir, ".worktrees/.gitignore")); !os.IsNotExist(err) {
 		t.Error(".worktrees/.gitignore should NOT have been copied")
+	}
+}
+
+// createLargeNodeModules creates a fake node_modules with the given number of
+// packages, each containing several files, to simulate a real-world scenario.
+func createLargeNodeModules(b *testing.B, baseDir string, numPackages int) []string {
+	b.Helper()
+	jsContent := []byte("'use strict'; module.exports = function() { return 'hello world'; };")
+	jsonContent := []byte(`{"name":"pkg","version":"1.0.0","main":"index.js"}`)
+	readmeContent := []byte("# Package\nThis is a test package for benchmarking.")
+	licenseContent := []byte("MIT License\nCopyright (c) 2024")
+	mapContent := make([]byte, 4096)
+
+	var files []string
+	for i := range numPackages {
+		pkgName := fmt.Sprintf("pkg-%04d", i)
+		pkgDir := filepath.Join(baseDir, "node_modules", pkgName)
+		if err := os.MkdirAll(pkgDir, 0755); err != nil {
+			b.Fatal(err)
+		}
+		for _, f := range []struct {
+			name    string
+			content []byte
+		}{
+			{"index.js", jsContent},
+			{"package.json", jsonContent},
+			{"README.md", readmeContent},
+			{"LICENSE", licenseContent},
+			{"index.js.map", mapContent},
+		} {
+			p := filepath.Join(pkgDir, f.name)
+			if err := os.WriteFile(p, f.content, 0600); err != nil {
+				b.Fatal(err)
+			}
+			rel, _ := filepath.Rel(baseDir, p)
+			files = append(files, rel)
+		}
+	}
+	return files
+}
+
+func BenchmarkCopyDir_Small(b *testing.B) {
+	srcDir := b.TempDir()
+	createLargeNodeModules(b, srcDir, 500)
+	srcNodeModules := filepath.Join(srcDir, "node_modules")
+
+	b.ResetTimer()
+	for b.Loop() {
+		dstDir := filepath.Join(b.TempDir(), "node_modules")
+		if err := copyDir(srcNodeModules, dstDir); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCopyFileByFile_Small(b *testing.B) {
+	srcDir := b.TempDir()
+	files := createLargeNodeModules(b, srcDir, 500)
+
+	b.ResetTimer()
+	for b.Loop() {
+		dstDir := b.TempDir()
+		for _, file := range files {
+			src := filepath.Join(srcDir, file)
+			dst := filepath.Join(dstDir, file)
+			if err := copyFile(src, dst); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+func BenchmarkCopyDir_RealNodeModules(b *testing.B) {
+	src := os.Getenv("BENCH_NODE_MODULES")
+	if src == "" {
+		b.Skip("set BENCH_NODE_MODULES to a real node_modules path to run this benchmark")
+	}
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		b.Skip("BENCH_NODE_MODULES path not found")
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		dst := filepath.Join(b.TempDir(), "node_modules")
+		if err := copyDir(src, dst); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkCopyFileByFile_RealNodeModules(b *testing.B) {
+	src := os.Getenv("BENCH_NODE_MODULES")
+	if src == "" {
+		b.Skip("set BENCH_NODE_MODULES to a real node_modules path to run this benchmark")
+	}
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		b.Skip("BENCH_NODE_MODULES path not found")
+	}
+
+	var files []string
+	if err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			rel, _ := filepath.Rel(src, path)
+			files = append(files, rel)
+		}
+		return nil
+	}); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for b.Loop() {
+		dstBase := b.TempDir()
+		for _, file := range files {
+			srcFile := filepath.Join(src, file)
+			dstFile := filepath.Join(dstBase, file)
+			if err := copyFile(srcFile, dstFile); err != nil {
+				b.Fatal(err)
+			}
+		}
 	}
 }

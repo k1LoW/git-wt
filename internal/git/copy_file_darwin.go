@@ -21,25 +21,54 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	// Skip directories
 	if srcInfo.IsDir() {
 		return nil
 	}
 
-	// Create parent directory
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return err
 	}
 
-	// Try clonefile first (APFS Copy-on-Write)
 	if err := unix.Clonefile(src, dst, unix.CLONE_NOFOLLOW); err == nil {
-		// clonefile preserves most permissions but strips setuid/setgid bits,
-		// so chmod is needed to restore the original mode completely.
 		return os.Chmod(dst, srcInfo.Mode())
 	}
 
-	// Fallback to traditional copy (non-APFS, cross-device, etc.)
 	return copyFileTraditional(src, dst, srcInfo)
+}
+
+// copyDir clones an entire directory tree using clonefile(2).
+// On APFS this is a single syscall that creates a CoW clone of the whole tree.
+// Falls back to recursive file-by-file copy on failure.
+func copyDir(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
+	if err := unix.Clonefile(src, dst, unix.CLONE_NOFOLLOW); err == nil {
+		return nil
+	}
+
+	return copyDirWalk(src, dst)
+}
+
+func copyDirWalk(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+
+		return copyFile(path, target)
+	})
 }
 
 func copyFileTraditional(src, dst string, srcInfo os.FileInfo) (err error) {
@@ -63,11 +92,9 @@ func copyFileTraditional(src, dst string, srcInfo os.FileInfo) (err error) {
 		return err
 	}
 
-	// Preserve file permissions
 	if err := os.Chmod(dst, srcInfo.Mode()); err != nil {
 		return err
 	}
 
-	// Preserve file timestamps
 	return os.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime())
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -63,25 +64,23 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 	if len(opts.NoCopy) > 0 {
 		var patterns []gitignore.Pattern
 		for _, p := range opts.NoCopy {
-			// Parse pattern from git root (empty domain means root)
 			patterns = append(patterns, gitignore.ParsePattern(p, nil))
 		}
 		noCopyMatcher = gitignore.NewMatcher(patterns)
 	}
 
-	// Remove duplicates
+	// Deduplicate and filter files
 	seen := make(map[string]struct{})
+	var filtered []string
 	for _, file := range files {
 		if _, exists := seen[file]; exists {
 			continue
 		}
 		seen[file] = struct{}{}
 
-		// Skip files inside ExcludeDirs
 		src := filepath.Join(srcRoot, file)
 		shouldSkip := false
 		for _, excludeDir := range opts.ExcludeDirs {
-			// Check if src is inside excludeDir
 			rel, err := filepath.Rel(excludeDir, src)
 			if err == nil && !strings.HasPrefix(rel, "..") {
 				shouldSkip = true
@@ -92,16 +91,54 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 			continue
 		}
 
-		// Skip files matching NoCopy patterns
 		if noCopyMatcher != nil {
-			// Split file path into components for gitignore matching
 			pathComponents := strings.Split(file, string(filepath.Separator))
-			isDir := false // files from git ls-files are always files
-			if noCopyMatcher.Match(pathComponents, isDir) {
+			if noCopyMatcher.Match(pathComponents, false) {
 				continue
 			}
 		}
 
+		filtered = append(filtered, file)
+	}
+
+	// Group files by top-level directory and attempt directory-level copy
+	dirFiles := groupByTopLevelDir(filtered)
+	copiedDirs := make(map[string]struct{})
+
+	for dir, dirFileList := range dirFiles {
+		srcDir := filepath.Join(srcRoot, dir)
+		info, err := os.Stat(srcDir)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+
+		allFilesInDir, err := countFilesInDir(srcDir)
+		if err != nil {
+			continue
+		}
+
+		if len(dirFileList) >= allFilesInDir {
+			dstDir := filepath.Join(dstRoot, dir)
+			if err := copyDir(srcDir, dstDir); err != nil {
+				if warn != nil {
+					fmt.Fprintf(warn, "warning: failed to copy directory %s, falling back to file-by-file: %v\n", dir, err)
+				}
+				continue
+			}
+			copiedDirs[dir] = struct{}{}
+		}
+	}
+
+	// Copy remaining files that were not covered by directory-level copy
+	for _, file := range filtered {
+		topDir := topLevelDir(file)
+		if topDir != "" {
+			if _, ok := copiedDirs[topDir]; ok {
+				continue
+			}
+		}
+
+		src := filepath.Join(srcRoot, file)
 		dst := filepath.Join(dstRoot, file)
 
 		if err := copyFile(src, dst); err != nil {
@@ -113,6 +150,45 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 	}
 
 	return nil
+}
+
+// topLevelDir returns the first path component if the file is inside a directory,
+// or empty string if the file is at the root level.
+func topLevelDir(file string) string {
+	dir := filepath.Dir(file)
+	if dir == "." {
+		return ""
+	}
+	parts := strings.SplitN(dir, string(filepath.Separator), 2)
+	return parts[0]
+}
+
+// groupByTopLevelDir groups files by their top-level directory.
+// Files at the root level are not included.
+func groupByTopLevelDir(files []string) map[string][]string {
+	groups := make(map[string][]string)
+	for _, file := range files {
+		dir := topLevelDir(file)
+		if dir != "" {
+			groups[dir] = append(groups[dir], file)
+		}
+	}
+	return groups
+}
+
+// countFilesInDir counts all regular files in a directory recursively.
+func countFilesInDir(dir string) (int, error) {
+	count := 0
+	err := filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			count++
+		}
+		return nil
+	})
+	return count, err
 }
 
 // listIgnoredFiles returns files ignored by .gitignore.
