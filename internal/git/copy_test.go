@@ -556,6 +556,122 @@ func TestCopyFile_PreservesTimestamps(t *testing.T) {
 	}
 }
 
+func TestCopyFilesToWorktree_Symlink(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "node_modules/\n.env\n")
+	repo.Commit("initial commit")
+
+	repo.CreateFile("node_modules/pkg-a/index.js", "module.exports = 'a'")
+	repo.CreateFile("node_modules/pkg-b/index.js", "module.exports = 'b'")
+	repo.CreateFile(".env", "SECRET=value")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	opts := CopyOptions{
+		CopyIgnored: true,
+		Symlink:     []string{"node_modules/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// node_modules should be a symlink
+	linkPath := filepath.Join(dstDir, "node_modules")
+	fi, err := os.Lstat(linkPath)
+	if err != nil {
+		t.Fatalf("failed to lstat node_modules: %v", err)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		t.Error("node_modules should be a symlink")
+	}
+
+	// Symlink target should be the source node_modules
+	target, err := os.Readlink(linkPath)
+	if err != nil {
+		t.Fatalf("failed to readlink: %v", err)
+	}
+	expectedTarget := filepath.Join(repo.Root, "node_modules")
+	if target != expectedTarget {
+		t.Errorf("symlink target = %q, want %q", target, expectedTarget)
+	}
+
+	// Files should be accessible through symlink
+	content, err := os.ReadFile(filepath.Join(linkPath, "pkg-a/index.js"))
+	if err != nil {
+		t.Fatalf("failed to read through symlink: %v", err)
+	}
+	if string(content) != "module.exports = 'a'" {
+		t.Errorf("content through symlink = %q, want %q", content, "module.exports = 'a'")
+	}
+
+	// .env should be copied normally (not symlinked)
+	envPath := filepath.Join(dstDir, ".env")
+	envFi, err := os.Lstat(envPath)
+	if err != nil {
+		t.Fatalf("failed to lstat .env: %v", err)
+	}
+	if envFi.Mode()&os.ModeSymlink != 0 {
+		t.Error(".env should NOT be a symlink")
+	}
+}
+
+func TestCopyFilesToWorktree_Symlink_NonMatchingDir(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.CreateFile(".gitignore", "node_modules/\nvendor/\n")
+	repo.Commit("initial commit")
+
+	repo.CreateFile("node_modules/pkg/index.js", "module.exports = 'a'")
+	repo.CreateFile("vendor/lib/main.go", "package main")
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	// Only symlink node_modules, vendor should be copied
+	opts := CopyOptions{
+		CopyIgnored: true,
+		Symlink:     []string{"node_modules/"},
+	}
+	err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, nil)
+	if err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+
+	// node_modules should be a symlink
+	fi, err := os.Lstat(filepath.Join(dstDir, "node_modules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		t.Error("node_modules should be a symlink")
+	}
+
+	// vendor should be a regular directory (copied, not symlinked)
+	fi, err = os.Lstat(filepath.Join(dstDir, "vendor"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		t.Error("vendor should NOT be a symlink")
+	}
+	if !fi.IsDir() {
+		t.Error("vendor should be a directory")
+	}
+}
+
 func TestCopyFilesToWorktree_ExcludeDirs(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")

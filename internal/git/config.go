@@ -20,6 +20,7 @@ const (
 	configKeyHook          = "wt.hook"
 	configKeyDeleteHook    = "wt.deletehook"
 	configKeyRemover       = "wt.remover"
+	configKeySymlink       = "wt.symlink"
 	configKeyNoCd          = "wt.nocd"
 	configKeyRelative      = "wt.relative"
 )
@@ -32,6 +33,7 @@ type Config struct {
 	CopyModified  bool
 	NoCopy        []string
 	Copy          []string
+	Symlink       []string
 	Hooks         []string
 	DeleteHooks   []string
 	Remover       string
@@ -110,6 +112,13 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		return cfg, err
 	}
 	cfg.Copy = copyPatterns
+
+	// Symlink
+	symlinkPatterns, err := GitConfig(ctx, configKeySymlink)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Symlink = symlinkPatterns
 
 	// Hooks
 	hooks, err := GitConfig(ctx, configKeyHook)

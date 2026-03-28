@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -17,6 +18,7 @@ type CopyOptions struct {
 	CopyModified  bool
 	NoCopy        []string
 	Copy          []string
+	Symlink       []string // Patterns for directories to symlink instead of copy (gitignore syntax)
 	ExcludeDirs   []string // Directories to exclude from copying (absolute paths)
 }
 
@@ -63,13 +65,55 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 	if len(opts.NoCopy) > 0 {
 		var patterns []gitignore.Pattern
 		for _, p := range opts.NoCopy {
-			// Parse pattern from git root (empty domain means root)
 			patterns = append(patterns, gitignore.ParsePattern(p, nil))
 		}
 		noCopyMatcher = gitignore.NewMatcher(patterns)
 	}
 
-	// Remove duplicates
+	// Build Symlink matcher using gitignore patterns
+	var symlinkMatcher gitignore.Matcher
+	if len(opts.Symlink) > 0 {
+		var patterns []gitignore.Pattern
+		for _, p := range opts.Symlink {
+			patterns = append(patterns, gitignore.ParsePattern(p, nil))
+		}
+		symlinkMatcher = gitignore.NewMatcher(patterns)
+	}
+
+	// Create symlinks for matching top-level directories before file-by-file copy
+	symlinkedDirs := make(map[string]struct{})
+	if symlinkMatcher != nil {
+		dirs := collectTopLevelDirs(files)
+		for _, dir := range dirs {
+			pathComponents := []string{dir}
+			if !symlinkMatcher.Match(pathComponents, true) {
+				continue
+			}
+
+			srcDir := filepath.Join(srcRoot, dir)
+			info, err := os.Lstat(srcDir)
+			if err != nil || !info.IsDir() {
+				continue
+			}
+
+			dstDir := filepath.Join(dstRoot, dir)
+			if err := os.MkdirAll(filepath.Dir(dstDir), 0755); err != nil {
+				if warn != nil {
+					fmt.Fprintf(warn, "warning: failed to create parent for symlink %s: %v\n", dir, err)
+				}
+				continue
+			}
+			if err := os.Symlink(srcDir, dstDir); err != nil {
+				if warn != nil {
+					fmt.Fprintf(warn, "warning: failed to symlink %s: %v\n", dir, err)
+				}
+				continue
+			}
+			symlinkedDirs[dir] = struct{}{}
+		}
+	}
+
+	// Deduplicate and filter files
 	seen := make(map[string]struct{})
 	for _, file := range files {
 		if _, exists := seen[file]; exists {
@@ -77,11 +121,18 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 		}
 		seen[file] = struct{}{}
 
+		// Skip files inside symlinked directories
+		topDir := topLevelDir(file)
+		if topDir != "" {
+			if _, ok := symlinkedDirs[topDir]; ok {
+				continue
+			}
+		}
+
 		// Skip files inside ExcludeDirs
 		src := filepath.Join(srcRoot, file)
 		shouldSkip := false
 		for _, excludeDir := range opts.ExcludeDirs {
-			// Check if src is inside excludeDir
 			rel, err := filepath.Rel(excludeDir, src)
 			if err == nil && !strings.HasPrefix(rel, "..") {
 				shouldSkip = true
@@ -94,10 +145,8 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 
 		// Skip files matching NoCopy patterns
 		if noCopyMatcher != nil {
-			// Split file path into components for gitignore matching
 			pathComponents := strings.Split(file, string(filepath.Separator))
-			isDir := false // files from git ls-files are always files
-			if noCopyMatcher.Match(pathComponents, isDir) {
+			if noCopyMatcher.Match(pathComponents, false) {
 				continue
 			}
 		}
@@ -113,6 +162,34 @@ func CopyFilesToWorktree(ctx context.Context, srcRoot, dstRoot string, opts Copy
 	}
 
 	return nil
+}
+
+// topLevelDir returns the first path component if the file is inside a directory,
+// or empty string if the file is at the root level.
+func topLevelDir(file string) string {
+	dir := filepath.Dir(file)
+	if dir == "." {
+		return ""
+	}
+	parts := strings.SplitN(dir, string(filepath.Separator), 2)
+	return parts[0]
+}
+
+// collectTopLevelDirs returns unique top-level directory names from a file list.
+func collectTopLevelDirs(files []string) []string {
+	seen := make(map[string]struct{})
+	var dirs []string
+	for _, file := range files {
+		dir := topLevelDir(file)
+		if dir == "" {
+			continue
+		}
+		if _, exists := seen[dir]; !exists {
+			seen[dir] = struct{}{}
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
 }
 
 // listIgnoredFiles returns files ignored by .gitignore.

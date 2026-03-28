@@ -47,6 +47,7 @@ var (
 	copymodifiedFlag  bool
 	nocopyFlag        []string
 	copyFlag           []string
+	symlinkFlag        []string
 	hookFlag           []string
 	deleteHookFlag     []string
 	removerFlag        string
@@ -122,6 +123,13 @@ Configuration:
     Example: git config --add wt.nocopy "*.log"
              git config --add wt.nocopy "vendor/"
 
+  wt.symlink (--symlink)
+    Patterns for directories to symlink instead of copy (gitignore syntax).
+    Matching top-level directories are symlinked to the source, sharing the
+    same files. This is much faster than copying but changes affect all worktrees.
+    Can be specified multiple times.
+    Example: git config --add wt.symlink "node_modules/"
+
   wt.hook (--hook)
     Commands to run after creating a new worktree.
     Can be specified multiple times. Hooks run in the new worktree directory.
@@ -196,6 +204,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
 	rootCmd.Flags().StringArrayVar(&nocopyFlag, "nocopy", nil, "Exclude files matching pattern from copying (can be specified multiple times)")
 	rootCmd.Flags().StringArrayVar(&copyFlag, "copy", nil, "Always copy files matching pattern (can be specified multiple times)")
+	rootCmd.Flags().StringArrayVar(&symlinkFlag, "symlink", nil, "Symlink directories matching pattern instead of copying (can be specified multiple times)")
 	rootCmd.Flags().StringArrayVar(&hookFlag, "hook", nil, "Run command after creating new worktree (can be specified multiple times)")
 	rootCmd.Flags().StringArrayVar(&deleteHookFlag, "deletehook", nil, "Run command before deleting a worktree (can be specified multiple times)")
 	rootCmd.Flags().StringVar(&removerFlag, "remover", "", "Custom command to remove worktree directory (e.g., trash-put)")
@@ -277,6 +286,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("copy") {
 		cfg.Copy = copyFlag
+	}
+	if cmd.Flags().Changed("symlink") {
+		cfg.Symlink = symlinkFlag
 	}
 	if cmd.Flags().Changed("hook") {
 		cfg.Hooks = hookFlag
@@ -717,6 +729,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 		CopyModified:  cfg.CopyModified,
 		NoCopy:        cfg.NoCopy,
 		Copy:          cfg.Copy,
+		Symlink:       cfg.Symlink,
 	}
 
 	// Check if worktree already exists for this branch or directory name
