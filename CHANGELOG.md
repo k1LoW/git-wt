@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.26.2](https://github.com/k1LoW/git-wt/compare/v0.26.1...v0.26.2) - 2026-04-02
+### Other Changes
+- chore(deps): bump github.com/go-git/go-git/v5 from 5.17.1 to 5.17.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/167
+- chore(deps): bump actions/setup-go from 6.3.0 to 6.4.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/168
+
 ## [v0.26.1](https://github.com/k1LoW/git-wt/compare/v0.26.0...v0.26.1) - 2026-03-31
 ### Other Changes
 - chore(deps): bump github.com/go-git/go-git/v5 from 5.17.0 to 5.17.1 by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/165
