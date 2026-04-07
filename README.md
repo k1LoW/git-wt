@@ -277,6 +277,30 @@ Default: `false`
 > [!NOTE]
 > If the subdirectory does not exist in the target worktree, the output falls back to the worktree root path.
 
+#### `wt.branchprefix` / `--branchprefix`
+
+Prefix to prepend to branch names when creating new branches. The prefix is **not** included in the worktree directory name, allowing short directory names with namespaced branch names.
+
+``` console
+# Set a branch prefix
+$ git config wt.branchprefix "username/"
+
+# Creates branch "username/my-feature" in directory ".wt/my-feature"
+$ git wt my-feature
+
+# Input already has the prefix — not doubled
+# Creates branch "username/my-feature" in directory ".wt/my-feature"
+$ git wt username/my-feature
+
+# Existing branches are used as-is (prefix not applied)
+$ git wt main  # uses existing "main" branch, not "username/main"
+```
+
+Default: (not set, no prefix)
+
+> [!NOTE]
+> The prefix is only applied when creating a **new** branch. If a branch matching the exact input already exists, it is used directly without adding the prefix.
+
 ## Recipes
 
 ### peco

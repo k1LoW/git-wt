@@ -23,6 +23,7 @@ const (
 	configKeySymlink       = "wt.symlink"
 	configKeyNoCd          = "wt.nocd"
 	configKeyRelative      = "wt.relative"
+	configKeyBranchPrefix  = "wt.branchprefix"
 )
 
 // Config holds all wt configuration values.
@@ -39,6 +40,7 @@ type Config struct {
 	Remover       string
 	NoCd          bool
 	Relative      bool
+	BranchPrefix  string
 }
 
 // GitConfig retrieves all git config values for a key.
@@ -157,6 +159,15 @@ func LoadConfig(ctx context.Context) (Config, error) {
 	}
 	cfg.Relative = len(val) > 0 && val[len(val)-1] == "true"
 
+	// BranchPrefix
+	branchPrefix, err := GitConfig(ctx, configKeyBranchPrefix)
+	if err != nil {
+		return cfg, err
+	}
+	if len(branchPrefix) > 0 {
+		cfg.BranchPrefix = branchPrefix[len(branchPrefix)-1]
+	}
+
 	return cfg, nil
 }
 
@@ -247,3 +258,15 @@ func WorktreePathFor(ctx context.Context, baseDir, branch string) (string, error
 
 	return filepath.Join(expandedBaseDir, branch), nil
 }
+
+// ApplyBranchPrefix returns the branch name with the prefix added, if it doesn't already have it.
+func ApplyBranchPrefix(branch, prefix string) string {
+	if prefix == "" {
+		return branch
+	}
+	if strings.HasPrefix(branch, prefix) {
+		return branch
+	}
+	return prefix + branch
+}
+

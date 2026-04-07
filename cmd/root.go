@@ -51,9 +51,10 @@ var (
 	hookFlag           []string
 	deleteHookFlag     []string
 	removerFlag        string
-	allowDeleteDefault bool
-	relativeFlag       bool
-	jsonFlag           bool
+	allowDeleteDefault  bool
+	relativeFlag        bool
+	branchprefixFlag    string
+	jsonFlag            bool
 )
 
 var rootCmd = &cobra.Command{
@@ -162,6 +163,17 @@ Configuration:
     Using --nocd with --init disables git() wrapper (wt.nocd config does not).
     Example: git config wt.nocd create
 
+  wt.branchprefix (--branchprefix)
+    Prefix to prepend to branch names when creating new branches.
+    The prefix is NOT included in the worktree directory name, allowing
+    short directory names with namespaced branch names.
+    When looking up existing branches, the exact name is checked first;
+    the prefix is only applied when creating a new branch.
+    If the input already starts with the prefix, it is not added again.
+    Default: (not set, no prefix)
+    Example: git config wt.branchprefix "username/"
+             git wt foo  →  branch "username/foo", directory ".wt/foo"
+
   wt.relative (--relative)
     Append the current subdirectory path to the worktree output path.
     When running from a subdirectory, the output path will include the
@@ -210,6 +222,7 @@ func init() {
 	rootCmd.Flags().StringVar(&removerFlag, "remover", "", "Custom command to remove worktree directory (e.g., trash-put)")
 	rootCmd.Flags().BoolVar(&allowDeleteDefault, "allow-delete-default", false, "Allow deletion of the default branch (main, master)")
 	rootCmd.Flags().BoolVar(&relativeFlag, "relative", false, "Append current subdirectory to worktree path (like git diff --relative)")
+	rootCmd.Flags().StringVar(&branchprefixFlag, "branchprefix", "", "Override wt.branchprefix config (prefix for new branch names)")
 	rootCmd.Flags().BoolVar(&jsonFlag, "json", false, "Output in JSON format")
 }
 
@@ -301,6 +314,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	}
 	if cmd.Flags().Changed("relative") {
 		cfg.Relative = relativeFlag
+	}
+	if cmd.Flags().Changed("branchprefix") {
+		cfg.BranchPrefix = branchprefixFlag
 	}
 
 	return cfg, nil
@@ -732,10 +748,29 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 		Symlink:       cfg.Symlink,
 	}
 
+	// Compute directory name (strip prefix if present) and prefixed branch name.
+	// The directory name is used for the worktree path, while the prefixed branch
+	// name is used when creating new git branches.
+	dirName := strings.TrimPrefix(branch, cfg.BranchPrefix)
+	prefixedBranch := git.ApplyBranchPrefix(branch, cfg.BranchPrefix)
+
 	// Check if worktree already exists for this branch or directory name
 	wt, err := git.FindWorktreeByBranchOrDir(ctx, branch)
 	if err != nil {
 		return fmt.Errorf("failed to find worktree: %w", err)
+	}
+	// Also try the prefixed branch name and stripped dir name
+	if wt == nil && prefixedBranch != branch {
+		wt, err = git.FindWorktreeByBranchOrDir(ctx, prefixedBranch)
+		if err != nil {
+			return fmt.Errorf("failed to find worktree: %w", err)
+		}
+	}
+	if wt == nil && dirName != branch {
+		wt, err = git.FindWorktreeByBranchOrDir(ctx, dirName)
+		if err != nil {
+			return fmt.Errorf("failed to find worktree: %w", err)
+		}
 	}
 
 	if wt != nil {
@@ -745,26 +780,42 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, branch, startPoint 
 		return nil
 	}
 
-	// Get worktree path
-	wtPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, branch)
+	// Get worktree path (uses dirName, not the full branch name with prefix)
+	wtPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, dirName)
 	if err != nil {
 		return fmt.Errorf("failed to get worktree path: %w", err)
 	}
 
-	// Check if branch exists
+	// Check if the exact branch name as typed exists
 	exists, err := git.BranchExists(ctx, branch)
 	if err != nil {
 		return fmt.Errorf("failed to check branch: %w", err)
 	}
 
 	if exists {
-		// Branch exists, create worktree with existing branch
+		// Branch exists as typed, create worktree with existing branch
 		// start-point is ignored when using existing branch
 		if err := git.AddWorktree(ctx, wtPath, branch, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
+	} else if prefixedBranch != branch {
+		// Check if the prefixed branch name exists
+		prefixedExists, err := git.BranchExists(ctx, prefixedBranch)
+		if err != nil {
+			return fmt.Errorf("failed to check branch: %w", err)
+		}
+		if prefixedExists {
+			if err := git.AddWorktree(ctx, wtPath, prefixedBranch, copyOpts); err != nil {
+				return fmt.Errorf("failed to create worktree: %w", err)
+			}
+		} else {
+			// Neither exists, create new branch with prefix
+			if err := git.AddWorktreeWithNewBranch(ctx, wtPath, prefixedBranch, startPoint, copyOpts); err != nil {
+				return fmt.Errorf("failed to create worktree with new branch: %w", err)
+			}
+		}
 	} else {
-		// Branch doesn't exist, create new branch and worktree
+		// No prefix configured, branch doesn't exist, create new branch and worktree
 		if err := git.AddWorktreeWithNewBranch(ctx, wtPath, branch, startPoint, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree with new branch: %w", err)
 		}

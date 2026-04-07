@@ -1,6 +1,7 @@
 // config_test.go contains configuration and flag tests:
 //   - TestE2E_CopyOptions: copy options tests (copyignored config/flag, copyuntracked, copymodified, multiple flags, flag overrides)
 //   - TestE2E_Basedir: basedir tests (config, flag)
+//   - TestE2E_BranchPrefix: branch prefix tests (config, flag, switch, existing branch, already prefixed, start-point)
 //   - TestE2E_Nocd: nocd tests (config, config_with_init, create_config)
 //   - TestE2E_Hooks: hook tests (flag, config, multiple, not_run_on_existing, flag_overrides_config, failure, output_to_stderr)
 //   - TestE2E_DeleteHooks: delete hook tests (flag, config, multiple, not_run_on_branch_only, flag_overrides_config, failure_prevents_deletion, hook_runs_in_worktree_directory, output_to_stderr)
@@ -346,6 +347,214 @@ func TestE2E_Basedir(t *testing.T) {
 		configPath := filepath.Join(configBase, "flag-branch")
 		if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 			t.Errorf("worktree should not have been created at config path %s", configPath)
+		}
+	})
+}
+
+func TestE2E_BranchPrefix(t *testing.T) {
+	t.Parallel()
+	binPath := buildBinary(t)
+
+	t.Run("config_creates_prefixed_branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Set branch prefix
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree
+		out, err := runGitWt(t, binPath, repo.Root, "my-feature")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		// Verify worktree directory uses unprefixed name
+		expectedPath := filepath.Join(repo.Root, ".wt", "my-feature")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+		assertWorktreeExists(t, wtPath)
+
+		// Verify the git branch has the prefix
+		branchOut := repo.Git("branch", "--list", "user/my-feature")
+		if !strings.Contains(branchOut, "user/my-feature") {
+			t.Errorf("expected branch 'user/my-feature' to exist, got: %s", branchOut)
+		}
+
+		// Verify unprefixed branch does NOT exist
+		unprefixedOut := repo.Git("branch", "--list", "my-feature")
+		if strings.Contains(unprefixedOut, "my-feature") {
+			t.Errorf("unprefixed branch 'my-feature' should not exist, got: %s", unprefixedOut)
+		}
+	})
+
+	t.Run("flag_overrides_config", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Set config prefix
+		repo.Git("config", "wt.branchprefix", "config-prefix/")
+
+		// Use flag to override
+		out, err := runGitWt(t, binPath, repo.Root, "--branchprefix", "flag-prefix/", "feat")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+
+		// Verify branch uses flag prefix, not config prefix
+		branchOut := repo.Git("branch", "--list", "flag-prefix/feat")
+		if !strings.Contains(branchOut, "flag-prefix/feat") {
+			t.Errorf("expected branch 'flag-prefix/feat' to exist, got: %s", branchOut)
+		}
+		configBranch := repo.Git("branch", "--list", "config-prefix/feat")
+		if strings.Contains(configBranch, "config-prefix/feat") {
+			t.Errorf("branch 'config-prefix/feat' should not exist")
+		}
+	})
+
+	t.Run("switch_by_dir_name", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree
+		_, err := runGitWt(t, binPath, repo.Root, "my-feature")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Switch using unprefixed name (dir match)
+		out, err := runGitWt(t, binPath, repo.Root, "my-feature")
+		if err != nil {
+			t.Fatalf("failed to switch to worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+		expectedPath := filepath.Join(repo.Root, ".wt", "my-feature")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+	})
+
+	t.Run("switch_by_prefixed_branch_name", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree
+		_, err := runGitWt(t, binPath, repo.Root, "my-feature")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Switch using full prefixed branch name
+		out, err := runGitWt(t, binPath, repo.Root, "user/my-feature")
+		if err != nil {
+			t.Fatalf("failed to switch to worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+		expectedPath := filepath.Join(repo.Root, ".wt", "my-feature")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+	})
+
+	t.Run("existing_branch_not_prefixed", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Create a branch without the prefix
+		repo.Git("branch", "existing-branch")
+
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree for the existing branch
+		out, err := runGitWt(t, binPath, repo.Root, "existing-branch")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		// Verify the worktree uses the existing branch (not prefixed)
+		expectedPath := filepath.Join(repo.Root, ".wt", "existing-branch")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+
+		// The existing unprefixed branch should be used
+		branchOut := repo.Git("branch", "--list", "user/existing-branch")
+		if strings.Contains(branchOut, "user/existing-branch") {
+			t.Errorf("prefixed branch 'user/existing-branch' should not have been created")
+		}
+	})
+
+	t.Run("input_already_has_prefix", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree using already-prefixed name
+		out, err := runGitWt(t, binPath, repo.Root, "user/my-feature")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		// Directory should strip the prefix
+		expectedPath := filepath.Join(repo.Root, ".wt", "my-feature")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+
+		// Branch should be user/my-feature (not user/user/my-feature)
+		branchOut := repo.Git("branch", "--list", "user/my-feature")
+		if !strings.Contains(branchOut, "user/my-feature") {
+			t.Errorf("expected branch 'user/my-feature' to exist, got: %s", branchOut)
+		}
+		doublePrefixed := repo.Git("branch", "--list", "user/user/my-feature")
+		if strings.Contains(doublePrefixed, "user/user/my-feature") {
+			t.Errorf("double-prefixed branch 'user/user/my-feature' should not exist")
+		}
+	})
+
+	t.Run("with_start_point", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("config", "wt.branchprefix", "user/")
+
+		// Create worktree with start-point
+		out, err := runGitWt(t, binPath, repo.Root, "new-feat", "main")
+		if err != nil {
+			t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		expectedPath := filepath.Join(repo.Root, ".wt", "new-feat")
+		if wtPath != expectedPath {
+			t.Errorf("worktree path = %q, want %q", wtPath, expectedPath)
+		}
+
+		branchOut := repo.Git("branch", "--list", "user/new-feat")
+		if !strings.Contains(branchOut, "user/new-feat") {
+			t.Errorf("expected branch 'user/new-feat' to exist, got: %s", branchOut)
 		}
 	})
 }
