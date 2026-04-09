@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.26.3](https://github.com/k1LoW/git-wt/compare/v0.26.2...v0.26.3) - 2026-04-09
+### Other Changes
+- chore(deps): bump golang.org/x/sys from 0.42.0 to 0.43.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/173
+- chore(deps): bump Songmu/tagpr from 1.17.1 to 1.18.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/174
+
 ## [v0.26.2](https://github.com/k1LoW/git-wt/compare/v0.26.1...v0.26.2) - 2026-04-02
 ### Other Changes
 - chore(deps): bump github.com/go-git/go-git/v5 from 5.17.1 to 5.17.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/167
