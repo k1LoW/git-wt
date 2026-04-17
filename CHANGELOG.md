@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.27.0](https://github.com/k1LoW/git-wt/compare/v0.26.2...v0.27.0) - 2026-04-17
+### Breaking Changes 🛠
+- fix: error when start-point is specified for existing branch or worktree by @k1LoW in https://github.com/k1LoW/git-wt/pull/179
+### New Features 🎉
+- feat: add `-b`/`--branch` flag to specify branch name independently from worktree directory name by @glasser in https://github.com/k1LoW/git-wt/pull/176
+### Other Changes
+- chore(deps): bump golang.org/x/sys from 0.42.0 to 0.43.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/173
+- chore(deps): bump Songmu/tagpr from 1.17.1 to 1.18.1 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/174
+- chore(deps): bump github.com/go-git/go-git/v5 from 5.17.2 to 5.18.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/178
+- chore(deps): bump Songmu/tagpr from 1.18.1 to 1.18.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/177
+
 ## [v0.26.2](https://github.com/k1LoW/git-wt/compare/v0.26.1...v0.26.2) - 2026-04-02
 ### Other Changes
 - chore(deps): bump github.com/go-git/go-git/v5 from 5.17.1 to 5.17.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/167
