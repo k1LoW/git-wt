@@ -760,8 +760,10 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 	}
 
 	if wt != nil {
-		// Worktree exists, print path to stdout
-		// start-point is ignored when switching to existing worktree
+		if startPoint != "" {
+			return fmt.Errorf("worktree for branch %q already exists at %s (start-point %q is not allowed when switching to an existing worktree)", wt.Branch, wt.Path, startPoint)
+		}
+		// Worktree exists, switch to it
 		fmt.Println(resolveRelative(ctx, wt.Path, cfg.Relative))
 		return nil
 	}
@@ -779,8 +781,10 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 	}
 
 	if exists {
+		if startPoint != "" {
+			return fmt.Errorf("branch %q already exists (start-point %q is not allowed for existing branches)", branchName, startPoint)
+		}
 		// Branch exists, create worktree with existing branch
-		// start-point is ignored when using existing branch
 		if err := git.AddWorktree(ctx, wtPath, branchName, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
