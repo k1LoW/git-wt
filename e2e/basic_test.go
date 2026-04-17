@@ -441,7 +441,9 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		repo.Commit("initial commit")
 
 		// Create worktree first
-		runGitWt(t, binPath, repo.Root, "feature-branch")
+		if _, err := runGitWt(t, binPath, repo.Root, "feature-branch"); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
 
 		// Switching to existing worktree with start-point should error
 		_, _, err := runGitWtStdout(t, binPath, repo.Root, "feature-branch", "main")
@@ -472,7 +474,9 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		repo.Commit("initial commit")
 
 		// Create worktree first
-		runGitWt(t, binPath, repo.Root, "feature-branch")
+		if _, err := runGitWt(t, binPath, repo.Root, "feature-branch"); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
 
 		// Switching to existing worktree with -b and start-point should error
 		_, _, err := runGitWtStdout(t, binPath, repo.Root, "feature-branch", "-b", "feature-branch", "main")
