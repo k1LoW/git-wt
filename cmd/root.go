@@ -761,7 +761,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 
 	if wt != nil {
 		if startPoint != "" {
-			return fmt.Errorf("worktree %q already exists at %s (start-point %q is not allowed when switching to an existing worktree)", wtName, wt.Path, startPoint)
+			return fmt.Errorf("worktree for branch %q already exists at %s (start-point %q is not allowed when switching to an existing worktree)", wt.Branch, wt.Path, startPoint)
 		}
 		// Worktree exists, switch to it
 		fmt.Println(resolveRelative(ctx, wt.Path, cfg.Relative))
