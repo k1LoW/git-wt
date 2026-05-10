@@ -125,17 +125,27 @@ func ListBranches(ctx context.Context) ([]string, error) {
 	return branches, nil
 }
 
-// BranchCommitMessage returns the first line of the latest commit message for a branch.
-func BranchCommitMessage(ctx context.Context, branch string) (string, error) {
-	cmd, err := gitCommand(ctx, "log", "-1", "--format=%s", branch, "--")
+// BranchCommitMessages returns the first line of the latest commit message for each ref matching
+// the given for-each-ref patterns, keyed by short ref name (e.g. "main", "origin/main").
+func BranchCommitMessages(ctx context.Context, patterns ...string) (map[string]string, error) {
+	args := append([]string{"for-each-ref", "--format=%(refname:short)%00%(contents:subject)"}, patterns...)
+	cmd, err := gitCommand(ctx, args...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	out, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return strings.TrimSpace(string(out)), nil
+	m := make(map[string]string)
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		name, subject, _ := strings.Cut(line, "\x00")
+		m[name] = subject
+	}
+	return m, nil
 }
 
 // ListRemoteBranches returns a list of all remote branch names (e.g., origin/main).
