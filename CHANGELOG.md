@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.28.0](https://github.com/k1LoW/git-wt/compare/v0.27.0...v0.28.0) - 2026-05-14
+### Breaking Changes 🛠
+- perf: batch branch commit-message lookups in shell completion by @tksm in https://github.com/k1LoW/git-wt/pull/187
+### Other Changes
+- chore(deps): bump the dependencies group across 1 directory with 4 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/181
+- chore(deps): bump github.com/go-git/go-billy/v5 from 5.8.0 to 5.9.0 by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/188
+- chore(deps): bump the dependencies group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/189
+
 ## [v0.27.0](https://github.com/k1LoW/git-wt/compare/v0.26.2...v0.27.0) - 2026-04-17
 ### Breaking Changes 🛠
 - fix: error when start-point is specified for existing branch or worktree by @k1LoW in https://github.com/k1LoW/git-wt/pull/179
