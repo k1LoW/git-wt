@@ -1,6 +1,7 @@
 package git
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/k1LoW/git-wt/testutil"
@@ -101,6 +102,64 @@ func TestListBranches(t *testing.T) {
 		if !found {
 			t.Errorf("expected branch %q not found in list", name)
 		}
+	}
+}
+
+func TestBranchCommitMessages(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	repo.Git("checkout", "-b", "feature-a")
+	repo.CreateFile("a.txt", "a")
+	// Subject + body — only the subject should be returned.
+	repo.Commit("feature a subject\n\nbody line")
+
+	// Simulate a remote-tracking branch by writing directly under refs/remotes/origin.
+	sha := strings.TrimSpace(repo.Git("rev-parse", "feature-a"))
+	repo.Git("update-ref", "refs/remotes/origin/feature-a", sha)
+
+	repo.Git("checkout", "main")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	tests := []struct {
+		name     string
+		patterns []string
+		want     map[string]string
+	}{
+		{
+			name:     "local only",
+			patterns: []string{"refs/heads"},
+			want: map[string]string{
+				"main":      "initial commit",
+				"feature-a": "feature a subject",
+			},
+		},
+		{
+			name:     "local and remote",
+			patterns: []string{"refs/heads", "refs/remotes"},
+			want: map[string]string{
+				"main":             "initial commit",
+				"feature-a":        "feature a subject",
+				"origin/feature-a": "feature a subject",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BranchCommitMessages(t.Context(), tt.patterns...)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			for name, subject := range tt.want {
+				if got[name] != subject {
+					t.Errorf("BranchCommitMessages()[%q] = %q, want %q", name, got[name], subject)
+				}
+			}
+		})
 	}
 }
 

@@ -348,6 +348,11 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 	// Track which names are worktrees
 	worktreeNames := make(map[string]struct{})
 
+	var commitMessages map[string]string
+	if msgs, err := git.BranchCommitMessages(ctx, "refs/heads"); err == nil {
+		commitMessages = msgs
+	}
+
 	// Add branches and directory names from existing worktrees
 	worktrees, err := git.ListWorktrees(ctx)
 	if err == nil {
@@ -373,12 +378,12 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 					// If worktree dir name matches branch name, use [worktree: branch=name] format
 					if wtDirName == wt.Branch {
 						desc = fmt.Sprintf("[worktree: branch=%s]", wt.Branch)
-						if msg, err := git.BranchCommitMessage(ctx, wt.Branch); err == nil && msg != "" {
+						if msg := commitMessages[wt.Branch]; msg != "" {
 							desc = fmt.Sprintf("[worktree: branch=%s] %s", wt.Branch, truncateString(msg, 40))
 						}
 					} else {
 						desc = fmt.Sprintf("[branch: worktree=%s]", wtInfo)
-						if msg, err := git.BranchCommitMessage(ctx, wt.Branch); err == nil && msg != "" {
+						if msg := commitMessages[wt.Branch]; msg != "" {
 							desc = fmt.Sprintf("[branch: worktree=%s] %s", wtInfo, truncateString(msg, 40))
 						}
 					}
@@ -399,12 +404,12 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 					// If worktree dir name matches branch name, use simpler [worktree: name] format
 					if wtDirName == branchInfo {
 						desc = fmt.Sprintf("[worktree: %s]", wtDirName)
-						if msg, err := git.BranchCommitMessage(ctx, wt.Branch); err == nil && msg != "" {
+						if msg := commitMessages[wt.Branch]; msg != "" {
 							desc = fmt.Sprintf("[worktree: %s] %s", wtDirName, truncateString(msg, 40))
 						}
 					} else {
 						desc = fmt.Sprintf("[worktree: branch=%s]", branchInfo)
-						if msg, err := git.BranchCommitMessage(ctx, wt.Branch); err == nil && msg != "" {
+						if msg := commitMessages[wt.Branch]; msg != "" {
 							desc = fmt.Sprintf("[worktree: branch=%s] %s", branchInfo, truncateString(msg, 40))
 						}
 					}
@@ -421,7 +426,7 @@ func completeBranches(cmd *cobra.Command, args []string, toComplete string) ([]s
 			if _, exists := seen[branch]; !exists {
 				seen[branch] = struct{}{}
 				desc := "[branch]"
-				if msg, err := git.BranchCommitMessage(ctx, branch); err == nil && msg != "" {
+				if msg := commitMessages[branch]; msg != "" {
 					desc = "[branch] " + truncateString(msg, 40)
 				}
 				completions = append(completions, fmt.Sprintf("%s\t%s", branch, desc))
@@ -438,6 +443,11 @@ func completeStartPoint(ctx context.Context) ([]string, cobra.ShellCompDirective
 	seen := make(map[string]struct{})
 	var completions []string
 
+	var commitMessages map[string]string
+	if msgs, err := git.BranchCommitMessages(ctx, "refs/heads", "refs/remotes"); err == nil {
+		commitMessages = msgs
+	}
+
 	// Add local branches
 	branches, err := git.ListBranches(ctx)
 	if err == nil {
@@ -445,7 +455,7 @@ func completeStartPoint(ctx context.Context) ([]string, cobra.ShellCompDirective
 			if _, exists := seen[branch]; !exists {
 				seen[branch] = struct{}{}
 				desc := "[branch]"
-				if msg, err := git.BranchCommitMessage(ctx, branch); err == nil && msg != "" {
+				if msg := commitMessages[branch]; msg != "" {
 					desc = "[branch] " + truncateString(msg, 40)
 				}
 				completions = append(completions, fmt.Sprintf("%s\t%s", branch, desc))
@@ -460,7 +470,7 @@ func completeStartPoint(ctx context.Context) ([]string, cobra.ShellCompDirective
 			if _, exists := seen[branch]; !exists {
 				seen[branch] = struct{}{}
 				desc := "[remote]"
-				if msg, err := git.BranchCommitMessage(ctx, branch); err == nil && msg != "" {
+				if msg := commitMessages[branch]; msg != "" {
 					desc = "[remote] " + truncateString(msg, 40)
 				}
 				completions = append(completions, fmt.Sprintf("%s\t%s", branch, desc))
