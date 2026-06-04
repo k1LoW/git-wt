@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.29.0](https://github.com/k1LoW/git-wt/compare/v0.28.0...v0.29.0) - 2026-06-04
+### New Features 🎉
+- feat: add `-m`/`-M` flag to rename a worktree's directory and branch by @k1LoW in https://github.com/k1LoW/git-wt/pull/195
+### Other Changes
+- chore(deps): bump github.com/go-git/go-git/v5 from 5.19.0 to 5.19.1 by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/191
+- chore(deps): bump the dependencies group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/193
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/192
+
 ## [v0.28.0](https://github.com/k1LoW/git-wt/compare/v0.27.0...v0.28.0) - 2026-05-14
 ### Breaking Changes 🛠
 - perf: batch branch commit-message lookups in shell completion by @tksm in https://github.com/k1LoW/git-wt/pull/187
