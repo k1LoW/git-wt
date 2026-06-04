@@ -45,10 +45,10 @@ $ git wt my-feature       # switch by directory name
 ```
 
 > [!NOTE]
-> The default branch (e.g., main, master) is protected from accidental deletion or rename.
-> - If the default branch has a worktree, `-d` removes the worktree but keeps the branch; `-m`/`-M` is blocked entirely.
-> - If the default branch has no worktree, deletion is blocked entirely.
-> - Use `--allow-delete-default` to override this protection and delete or rename the branch.
+> The default branch (e.g., main, master) is protected from accidental deletion or rename. Pass `--allow-delete-default` to override the protection.
+> - If the default branch has a worktree, `-d` removes the worktree but keeps the branch by default; `-m`/`-M` refuses to rename it by default.
+> - If the default branch has no worktree, deletion is refused by default.
+> - In every case, `--allow-delete-default` lifts the protection and lets the destructive operation proceed against the default branch.
 
 ## Install
 

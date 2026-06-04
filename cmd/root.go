@@ -75,9 +75,9 @@ Examples:
   git wt -M [<old>] <new>                        Force rename (overwrite existing branch, allow moving dirty/locked worktrees)
 
 Note: The default branch (e.g., main, master) is protected from accidental deletion or rename.
-      - With worktree: -d removes the worktree but keeps the branch; -m/-M is blocked entirely.
-      - Without worktree: deletion is blocked entirely.
-      Use --allow-delete-default to override and delete or rename the branch.
+      Pass --allow-delete-default to override the protection in any of the cases below.
+      - With worktree: -d removes the worktree but keeps the branch by default; -m/-M refuses to rename by default.
+      - Without worktree: deletion is refused by default.
 
 Shell Integration:
   Add the following to your shell config to enable worktree switching and completion:
