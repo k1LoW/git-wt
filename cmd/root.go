@@ -806,7 +806,20 @@ func moveWorktree(ctx context.Context, cmd *cobra.Command, args []string, force 
 			return fmt.Errorf("failed to find worktree: %w", err)
 		}
 		if src == nil {
-			return fmt.Errorf("no worktree found for %q", oldQuery)
+			// Fallback: try matching <oldQuery> as a directory name relative
+			// to the already-resolved (override-aware) baseDir.
+			// FindWorktreeByBranchOrDir uses internal git.LoadConfig for its
+			// basedir-relative match path, so a `--basedir` flag override
+			// does not reach it. Resolving to an absolute path here lets the
+			// helper's path-matching strategy pick the worktree up.
+			candidate := filepath.Join(baseDir, oldQuery)
+			src, err = git.FindWorktreeByBranchOrDir(ctx, candidate)
+			if err != nil {
+				return fmt.Errorf("failed to find worktree: %w", err)
+			}
+			if src == nil {
+				return fmt.Errorf("no worktree found for %q", oldQuery)
+			}
 		}
 	}
 
@@ -832,12 +845,14 @@ func moveWorktree(ctx context.Context, cmd *cobra.Command, args []string, force 
 		oldPath = resolved
 	}
 
-	newPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, newName)
-	if err != nil {
-		return fmt.Errorf("failed to compute new worktree path: %w", err)
-	}
+	// Build newPath off the already-symlink-resolved baseDir so the prefix
+	// matches oldPath (also symlink-resolved). Going through
+	// git.WorktreePathFor here would re-expand cfg.BaseDir without resolving
+	// symlinks, leaving newPath at e.g. /var/... while oldPath is
+	// /private/var/... on macOS — which silently breaks the samePath check.
+	newPath := filepath.Clean(filepath.Join(baseDir, newName))
 
-	if oldPath == filepath.Clean(newPath) && src.Branch == newName {
+	if oldPath == newPath && src.Branch == newName {
 		return fmt.Errorf("worktree %q is already named %q", src.Branch, newName)
 	}
 
@@ -859,7 +874,7 @@ func moveWorktree(ctx context.Context, cmd *cobra.Command, args []string, force 
 	// when newPath resolves to the same directory as oldPath (the
 	// branch-only rename case, e.g. a worktree created via `-b` whose
 	// directory is already named newName).
-	samePath := oldPath == filepath.Clean(newPath)
+	samePath := oldPath == newPath
 	if !samePath {
 		info, err := os.Stat(newPath)
 		switch {

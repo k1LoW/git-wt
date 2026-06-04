@@ -308,6 +308,35 @@ func TestE2E_MoveWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("respects_basedir_flag_override_with_dir_query", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		altBase := filepath.Join(repo.ParentDir(), "alt-base-dirq")
+
+		// Create a worktree with -b so the directory name (dirX) differs
+		// from the branch name (branchX), under an overridden basedir.
+		if _, err := runGitWt(t, binPath, repo.Root, "--basedir", altBase, "-b", "branchX", "dirX"); err != nil {
+			t.Fatalf("failed to create worktree with -b under alt basedir: %v", err)
+		}
+
+		// Rename by *directory* name (not branch name) while keeping the
+		// basedir override. Without the override-aware fallback, this query
+		// fails because FindWorktreeByBranchOrDir's basedir-relative match
+		// path uses unoverridden config.
+		out, err := runGitWt(t, binPath, repo.Root, "--basedir", altBase, "-m", "dirX", "dirY")
+		if err != nil {
+			t.Fatalf("rename by dir name with --basedir override failed: %v\noutput: %s", err, out)
+		}
+
+		newPath := filepath.Join(altBase, "dirY")
+		if _, err := os.Stat(newPath); err != nil {
+			t.Errorf("renamed worktree should exist at %q: %v", newPath, err)
+		}
+	})
+
 	t.Run("respects_basedir_flag_override", func(t *testing.T) {
 		t.Parallel()
 		repo := testutil.NewTestRepo(t)

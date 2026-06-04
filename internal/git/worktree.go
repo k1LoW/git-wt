@@ -490,9 +490,11 @@ func MoveWorktree(ctx context.Context, oldPath, newPath string, force bool) erro
 // it reaches stopDir (exclusive) or hits a non-empty directory. stopDir is
 // never removed.
 //
-// Both paths must be absolute and clean. As a safety guard, startDir must
-// itself be a strict descendant of stopDir; otherwise the walk refuses to
-// remove anything (returning nil) so a misconfigured basedir cannot cause
+// Both paths must be absolute; the function returns an error otherwise so a
+// caller that hands in a relative path cannot accidentally trigger deletions
+// against its current working directory. As a further safety guard, startDir
+// must itself be a strict descendant of stopDir; otherwise the walk refuses
+// to remove anything (returning nil) so a misconfigured basedir cannot cause
 // the loop to climb out of basedir and delete unrelated directories.
 //
 // Directories that contain only the basedir decoration files written by
@@ -503,6 +505,9 @@ func MoveWorktree(ctx context.Context, oldPath, newPath string, force bool) erro
 // considered removable when their content is bit-identical to what
 // initBaseDir wrote.
 func RemoveEmptyParents(startDir, stopDir string) error {
+	if !filepath.IsAbs(startDir) || !filepath.IsAbs(stopDir) {
+		return fmt.Errorf("absolute paths required: startDir=%q stopDir=%q", startDir, stopDir)
+	}
 	stopDir = filepath.Clean(stopDir)
 	cur := filepath.Clean(startDir)
 	if !isStrictDescendant(cur, stopDir) {
