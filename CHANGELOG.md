@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.29.1](https://github.com/k1LoW/git-wt/compare/v0.29.0...v0.29.1) - 2026-06-19
+
+### Other Changes
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/196
+- chore(deps): bump actions/checkout from 6.0.3 to 7.0.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/199
+
 ## [v0.29.0](https://github.com/k1LoW/git-wt/compare/v0.28.0...v0.29.0) - 2026-06-04
 ### New Features 🎉
 - feat: add `-m`/`-M` flag to rename a worktree's directory and branch by @k1LoW in https://github.com/k1LoW/git-wt/pull/195
