@@ -388,6 +388,69 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("with_remote_start_point_for_ambiguous_remote_branch", func(t *testing.T) {
+		t.Parallel()
+		// Create a "remote" repo
+		remoteRepo := testutil.NewTestRepo(t)
+		remoteRepo.CreateFile("README.md", "# Remote")
+		remoteRepo.Commit("remote initial commit")
+		remoteRepo.CreateFile("remote-file.txt", "remote content")
+		remoteRepo.Commit("remote second commit")
+
+		remoteRepo.Git("branch", "old-base", "HEAD~1")
+
+		// Clone the remote repo
+		cloneDir := t.TempDir()
+		clonePath := filepath.Join(cloneDir, "clone")
+		cmd := exec.Command("git", "clone", remoteRepo.Root, clonePath)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git clone failed: %v\noutput: %s", err, out)
+		}
+
+		cmd = exec.Command("git", "remote", "add", "another", remoteRepo.Root)
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git remote add failed: %v\noutput: %s", err, out)
+		}
+
+		cmd = exec.Command("git", "fetch", "another")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git fetch another failed: %v\noutput: %s", err, out)
+		}
+
+		// assert the branch name is ambiguous
+		cmd = exec.Command("git", "for-each-ref", "refs/remotes/*/old-base")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git for-each-ref failed: %v\noutput: %s", err, out)
+		} else if strings.Count(string(out), "/old-base\n") < 2 {
+			t.Fatalf("there should be multiple matches\noutput: %s", out)
+		}
+		// ambiguous remote branch cannot be checked out
+		cmd = exec.Command("git", "checkout", "old-base")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err == nil {
+			t.Fatalf("git checkout succeeded unexpectedly\noutput: %s", out)
+		}
+
+		stdout, stderr, err := runGitWtStdout(t, binPath, clonePath, "old-base", "origin/old-base")
+		if err != nil {
+			t.Fatalf("git-wt with remote start-point failed: %v\nstderr: %s", err, stderr)
+		}
+
+		wtPath := strings.TrimSpace(stdout)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree was not created at %s", wtPath)
+		}
+
+		// Verify the worktree is based on the first commit (should NOT have remote-file.txt)
+		remoteFilePath := filepath.Join(wtPath, "remote-file.txt")
+		if _, err := os.Stat(remoteFilePath); !os.IsNotExist(err) {
+			t.Error("worktree should NOT have remote-file.txt (should be based on origin/old-base)")
+		}
+	})
+
 	t.Run("existing_branch", func(t *testing.T) {
 		t.Parallel()
 		repo := testutil.NewTestRepo(t)
