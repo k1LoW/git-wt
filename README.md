@@ -21,7 +21,7 @@ The target can be specified as:
 - **path**: a filesystem path (absolute or relative to the current working directory) to an existing worktree —  _eg._ `git wt ../sibling`, `git wt /absolute/path`
 
 > [!NOTE]
-> git-wt has no subcommands. Every non-flag argument is a target name, so `git wt list` creates a worktree named `list` instead of listing anything. Run `git wt` with no arguments to list worktrees.
+> git-wt has no subcommands. The first non-flag argument is always a target name, never a command, so `git wt list` creates a worktree named `list` instead of listing anything. Run `git wt` with no arguments to list worktrees.
 
 When deleting, the same target types apply: `git wt -d feature-branch`, `git wt -d .`, `git wt -d ../sibling`
 

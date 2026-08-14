@@ -74,8 +74,9 @@ Examples:
   git wt -m [<old>] <new>                        Rename worktree directory and branch (safe)
   git wt -M [<old>] <new>                        Force rename (overwrite existing branch, allow moving dirty/locked worktrees)
 
-Note: git-wt has no subcommands. Every non-flag argument is a branch/worktree name, so
-      'git wt list' creates a worktree named "list". Run 'git wt' with no arguments to list.
+Note: git-wt has no subcommands. The first non-flag argument is always a target name, never
+      a command, so 'git wt list' creates a worktree named "list". Run 'git wt' with no
+      arguments to list.
 
 Deleting:
   -d is the safe form and stops short when something would be lost.
