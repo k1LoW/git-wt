@@ -74,6 +74,9 @@ Examples:
   git wt -m [<old>] <new>                        Rename worktree directory and branch (safe)
   git wt -M [<old>] <new>                        Force rename (overwrite existing branch, allow moving dirty/locked worktrees)
 
+Note: git-wt has no subcommands. Every non-flag argument is a branch/worktree name, so
+      'git wt list' creates a worktree named "list". Run 'git wt' with no arguments to list.
+
 Deleting:
   -d is the safe form and stops short when something would be lost.
   - If the worktree has modified or untracked files, nothing is deleted.
@@ -101,6 +104,14 @@ Shell Integration:
 
   # powershell ($PROFILE)
   Invoke-Expression (git-wt --init powershell | Out-String)
+
+  The 'cd' is performed by a shell function, so it only exists in a shell that sourced
+  the script above. The binary itself always prints the resulting worktree path as the
+  last line of stdout, which is what that function reads. Git's own progress output goes
+  to stderr and hook output is printed before the path, so scripts and other tools can
+  rely on the last line:
+
+    WT=$(git wt --nocd <branch> | tail -1)
 
 Configuration:
   Configuration is done via git config. All config options can be overridden

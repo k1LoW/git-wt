@@ -20,6 +20,9 @@ The target can be specified as:
 - **worktree**: a directory name relative to [`wt.basedir`](#wtbasedir----basedir) (default `.wt`) — _eg._ `git wt some-worktree-folder-name`
 - **path**: a filesystem path (absolute or relative to the current working directory) to an existing worktree —  _eg._ `git wt ../sibling`, `git wt /absolute/path`
 
+> [!NOTE]
+> git-wt has no subcommands. Every non-flag argument is a target name, so `git wt list` creates a worktree named `list` instead of listing anything. Run `git wt` with no arguments to list worktrees.
+
 When deleting, the same target types apply: `git wt -d feature-branch`, `git wt -d .`, `git wt -d ../sibling`
 
 `-d` is the safe form and stops short when something would be lost:
@@ -105,6 +108,13 @@ Invoke-Expression (git wt --init powershell | Out-String)
 
 > [!IMPORTANT]
 > The shell integration creates a `git()` wrapper function to enable automatic directory switching with `git wt <branch>`. This wrapper intercepts only `git wt <branch>` commands and passes all other git commands through unchanged. If you have other tools or customizations that also wrap the `git` command, there may be conflicts.
+
+The `cd` is performed by that wrapper function, so it only exists in a shell that sourced the script above. The binary itself always prints the resulting worktree path as the **last line of stdout**, which is what the wrapper reads. Git's own progress output goes to stderr and [hook](#wthook----hook) output is printed before the path, so scripts, editors, and other tools can rely on the last line:
+
+``` console
+$ WT=$(git wt --nocd feature-branch | tail -1)
+$ git -C "$WT" status
+```
 
 If you want only completion without the `git()` wrapper (no automatic directory switching), use the `--nocd` option:
 
