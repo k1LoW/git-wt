@@ -109,7 +109,7 @@ Invoke-Expression (git wt --init powershell | Out-String)
 > [!IMPORTANT]
 > The shell integration creates a `git()` wrapper function to enable automatic directory switching with `git wt <branch>`. This wrapper intercepts only `git wt <branch>` commands and passes all other git commands through unchanged. If you have other tools or customizations that also wrap the `git` command, there may be conflicts.
 
-The `cd` is performed by that wrapper function, so it only exists in a shell that sourced the script above. The binary itself always prints the resulting worktree path as the **last line of stdout**, which is what the wrapper reads. Git's own progress output goes to stderr and [hook](#wthook----hook) output is printed before the path, so scripts, editors, and other tools can rely on the last line:
+The `cd` is performed by that wrapper function, so it only exists in a shell that sourced the script above. The binary itself always prints the resulting worktree path as the **last line of stdout**, which is what the wrapper reads. Git's own progress output and [hook](#wthook----hook) output both go to stderr, so scripts, editors, and other tools can rely on the last line:
 
 ``` console
 $ WT=$(git wt --nocd feature-branch | tail -1)

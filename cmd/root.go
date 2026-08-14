@@ -108,9 +108,8 @@ Shell Integration:
 
   The 'cd' is performed by a shell function, so it only exists in a shell that sourced
   the script above. The binary itself always prints the resulting worktree path as the
-  last line of stdout, which is what that function reads. Git's own progress output goes
-  to stderr and hook output is printed before the path, so scripts and other tools can
-  rely on the last line:
+  last line of stdout, which is what that function reads. Git's own progress output and
+  hook output both go to stderr, so scripts and other tools can rely on the last line:
 
     WT=$(git wt --nocd <branch> | tail -1)
 
