@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.29.1](https://github.com/k1LoW/git-wt/compare/v0.29.0...v0.29.1) - 2026-08-14
+
+### Fix bug 🐛
+- Don't consider remote branches when start-point is given by @yoichi in https://github.com/k1LoW/git-wt/pull/208
+### Other Changes
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/196
+- chore(deps): bump actions/checkout from 6.0.3 to 7.0.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/199
+- chore(deps): bump golang.org/x/net from 0.53.0 to 0.55.0 by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/202
+- chore(deps): bump github.com/go-git/go-git/v5 from 5.19.1 to 5.19.2 by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/209
+- chore(deps): bump the dependencies group across 1 directory with 5 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/207
+- chore(deps): bump the dependencies group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/206
+- docs: clarify delete semantics and `wt.symlink` prerequisites by @k1LoW in https://github.com/k1LoW/git-wt/pull/211
+- chore(deps): bump golang.org/x/sys from 0.46.0 to 0.47.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/210
+
 ## [v0.29.0](https://github.com/k1LoW/git-wt/compare/v0.28.0...v0.29.0) - 2026-06-04
 ### New Features 🎉
 - feat: add `-m`/`-M` flag to rename a worktree's directory and branch by @k1LoW in https://github.com/k1LoW/git-wt/pull/195
