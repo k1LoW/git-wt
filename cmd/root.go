@@ -80,7 +80,8 @@ Note: git-wt has no subcommands. Every non-flag argument is a branch/worktree na
 Deleting:
   -d is the safe form and stops short when something would be lost.
   - If the worktree has modified or untracked files, nothing is deleted.
-    A directory shared through wt.symlink counts as untracked, see wt.symlink below.
+    A directory shared through wt.symlink counts as untracked unless the ignore pattern
+    matches the link itself, see wt.symlink below.
   - If the branch is not fully merged, the worktree is removed but the branch is kept.
     git-wt reports this and still exits 0, so read the message, not just the exit code.
   -D skips both checks and removes the worktree together with its branch.

@@ -27,7 +27,7 @@ When deleting, the same target types apply: `git wt -d feature-branch`, `git wt 
 
 `-d` is the safe form and stops short when something would be lost:
 
-- If the worktree has modified or untracked files, nothing is deleted. A directory shared through [`wt.symlink`](#wtsymlink----symlink) counts as untracked.
+- If the worktree has modified or untracked files, nothing is deleted. A directory shared through [`wt.symlink`](#wtsymlink----symlink) counts as untracked unless the ignore pattern matches the link itself.
 - If the branch is not fully merged, the worktree is removed but the branch is kept. git-wt reports this and still exits `0`, so read the message rather than only the exit code.
 
 `-D` skips both checks and removes the worktree together with its branch.
