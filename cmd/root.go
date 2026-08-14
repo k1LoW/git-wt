@@ -1069,16 +1069,25 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 	}
 
 	// Check if branch exists
-	exists, err := git.BranchExists(ctx, branchName)
-	if err != nil {
-		return fmt.Errorf("failed to check branch: %w", err)
+	var exists bool
+	if startPoint != "" {
+		exists, err = git.LocalBranchExists(ctx, branchName)
+		if err != nil {
+			return fmt.Errorf("failed to check branch: %w", err)
+		}
+	} else {
+		exists, err = git.BranchExists(ctx, branchName)
+		if err != nil {
+			return fmt.Errorf("failed to check branch: %w", err)
+		}
 	}
 
 	if exists {
 		if startPoint != "" {
 			return fmt.Errorf("branch %q already exists (start-point %q is not allowed for existing branches)", branchName, startPoint)
 		}
-		// Branch exists, create worktree with existing branch
+		// Create worktree with existing local branch,
+		// or create new branch using DWIM when matching remote branch exists.
 		if err := git.AddWorktree(ctx, wtPath, branchName, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
