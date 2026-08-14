@@ -22,6 +22,13 @@ The target can be specified as:
 
 When deleting, the same target types apply: `git wt -d feature-branch`, `git wt -d .`, `git wt -d ../sibling`
 
+`-d` is the safe form and stops short when something would be lost:
+
+- If the worktree has modified or untracked files, nothing is deleted. A directory shared through [`wt.symlink`](#wtsymlink----symlink) counts as untracked.
+- If the branch is not fully merged, the worktree is removed but the branch is kept. git-wt reports this and still exits `0`, so read the message rather than only the exit code.
+
+`-D` skips both checks and removes the worktree together with its branch.
+
 Use `-m` (`-M` to force) to rename a worktree's directory and branch in a single operation. With one argument, the current worktree is renamed; with two, an explicit worktree is renamed:
 
 ``` console

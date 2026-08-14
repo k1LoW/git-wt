@@ -74,6 +74,14 @@ Examples:
   git wt -m [<old>] <new>                        Rename worktree directory and branch (safe)
   git wt -M [<old>] <new>                        Force rename (overwrite existing branch, allow moving dirty/locked worktrees)
 
+Deleting:
+  -d is the safe form and stops short when something would be lost.
+  - If the worktree has modified or untracked files, nothing is deleted.
+    A directory shared through wt.symlink counts as untracked, see wt.symlink below.
+  - If the branch is not fully merged, the worktree is removed but the branch is kept.
+    git-wt reports this and still exits 0, so read the message, not just the exit code.
+  -D skips both checks and removes the worktree together with its branch.
+
 Note: The default branch (e.g., main, master) is protected from accidental deletion or rename.
       Pass --allow-delete-default to override the protection in any of the cases below.
       - With worktree: -d removes the worktree but keeps the branch by default; -m/-M refuses to rename by default.
@@ -205,7 +213,7 @@ func init() {
 	// git-wt uses its own shell integration via --init flag instead.
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
-	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch by name or path (safe delete, only if merged)")
+	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch by name or path (safe delete, refuses a dirty worktree and keeps an unmerged branch)")
 	rootCmd.Flags().BoolVarP(&forceDeleteFlag, "force-delete", "D", false, "Force delete worktree and branch by name or path")
 	rootCmd.Flags().BoolVarP(&moveFlag, "move", "m", false, "Rename worktree directory and branch (safe rename)")
 	rootCmd.Flags().BoolVarP(&forceMoveFlag, "force-move", "M", false, "Force rename worktree directory and branch (allow overwriting existing branch and moving dirty/locked worktrees)")
