@@ -119,6 +119,8 @@ Configuration:
   wt.copy (--copy)
     Patterns for files to always copy, even if gitignored (gitignore syntax).
     Can be specified multiple times. Useful for copying specific IDE files.
+    Patterns are matched against gitignored and untracked files, so this brings
+    files in without enabling wt.copyignored for everything.
     Example: git config --add wt.copy "*.code-workspace"
              git config --add wt.copy ".vscode/"
 
@@ -134,7 +136,15 @@ Configuration:
     Matching top-level directories are symlinked to the source, sharing the
     same files. This is much faster than copying but changes affect all worktrees.
     Can be specified multiple times.
-    Example: git config --add wt.symlink "node_modules/"
+    Note: this only redirects directories that are already going to be copied. On its
+          own it does nothing, so pair it with wt.copy (or wt.copyignored /
+          wt.copyuntracked) to make the directory a copy target first.
+    Note: a symlink is not a directory, so a trailing-slash gitignore pattern such as
+          "node_modules/" does not match the link and git reports it as untracked.
+          That also makes 'git wt -d' refuse to remove the worktree. Drop the trailing
+          slash, or add the bare name to .git/info/exclude.
+    Example: git config --add wt.copy "node_modules/"
+             git config --add wt.symlink "node_modules/"
 
   wt.hook (--hook)
     Commands to run after creating a new worktree.

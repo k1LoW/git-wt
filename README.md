@@ -190,6 +190,8 @@ $ git wt --copy "*.code-workspace" --copy ".vscode/" feature-branch
 
 This is useful when you want to copy specific IDE files (like VS Code workspace files) without enabling `wt.copyignored` for all gitignored files.
 
+Patterns are matched against gitignored and untracked files.
+
 > [!NOTE]
 > The worktree base directory (`wt.basedir`) is always excluded from file copying, regardless of copy options. This prevents circular copying when basedir is inside the repository (e.g., `.worktrees/`).
 
@@ -212,6 +214,25 @@ Supported patterns (same as `.gitignore`):
 
 > [!NOTE]
 > If the same file matches both `wt.copy` and `wt.nocopy`, `wt.nocopy` takes precedence.
+
+#### `wt.symlink` / `--symlink`
+
+Symlink matching top-level directories to the source instead of copying them. Uses `.gitignore` syntax.
+
+Because the directory is shared rather than duplicated, worktree creation stays fast no matter how large it is. The flip side is that every worktree sees the same contents, so an install in one worktree changes all of them.
+
+``` console
+$ git config --add wt.copy "node_modules/"
+$ git config --add wt.symlink "node_modules/"
+# or override for a single invocation (multiple patterns supported)
+$ git wt --copy "node_modules/" --symlink "node_modules/" feature-branch
+```
+
+> [!IMPORTANT]
+> `wt.symlink` only redirects directories that are already going to be copied, so on its own it does nothing. Pair it with `wt.copy` (as above), or with `wt.copyignored` / `wt.copyuntracked` if the directory is already covered by those.
+
+> [!NOTE]
+> A symlink is not a directory, so a trailing-slash `.gitignore` pattern such as `node_modules/` does not match the link and git reports it as untracked. That also makes `git wt -d` refuse to remove the worktree. Drop the trailing slash in `.gitignore`, or add the bare name to `.git/info/exclude`.
 
 #### `wt.hook` / `--hook`
 
