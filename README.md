@@ -20,7 +20,17 @@ The target can be specified as:
 - **worktree**: a directory name relative to [`wt.basedir`](#wtbasedir----basedir) (default `.wt`) — _eg._ `git wt some-worktree-folder-name`
 - **path**: a filesystem path (absolute or relative to the current working directory) to an existing worktree —  _eg._ `git wt ../sibling`, `git wt /absolute/path`
 
+> [!NOTE]
+> git-wt has no subcommands. The first non-flag argument is always a target name, never a command, so `git wt list` creates a worktree named `list` instead of listing anything. Run `git wt` with no arguments to list worktrees.
+
 When deleting, the same target types apply: `git wt -d feature-branch`, `git wt -d .`, `git wt -d ../sibling`
+
+`-d` is the safe form and stops short when something would be lost:
+
+- If the worktree has modified or untracked files, nothing is deleted. A directory shared through [`wt.symlink`](#wtsymlink----symlink) counts as untracked unless the ignore pattern matches the link itself.
+- If the branch is not fully merged, the worktree is removed but the branch is kept. git-wt reports this and still exits `0`, so read the message rather than only the exit code.
+
+`-D` skips both checks and removes the worktree together with its branch.
 
 Use `-m` (`-M` to force) to rename a worktree's directory and branch in a single operation. With one argument, the current worktree is renamed; with two, an explicit worktree is renamed:
 
@@ -98,6 +108,13 @@ Invoke-Expression (git wt --init powershell | Out-String)
 
 > [!IMPORTANT]
 > The shell integration creates a `git()` wrapper function to enable automatic directory switching with `git wt <branch>`. This wrapper intercepts only `git wt <branch>` commands and passes all other git commands through unchanged. If you have other tools or customizations that also wrap the `git` command, there may be conflicts.
+
+The `cd` is performed by that wrapper function, so it only exists in a shell that sourced the script above. The binary itself always prints the resulting worktree path as the **last line of stdout**, which is what the wrapper reads. Git's own progress output and [hook](#wthook----hook) output both go to stderr, so scripts, editors, and other tools can rely on the last line:
+
+``` console
+$ WT=$(git wt --nocd feature-branch | tail -1)
+$ git -C "$WT" status
+```
 
 If you want only completion without the `git()` wrapper (no automatic directory switching), use the `--nocd` option:
 
@@ -190,6 +207,8 @@ $ git wt --copy "*.code-workspace" --copy ".vscode/" feature-branch
 
 This is useful when you want to copy specific IDE files (like VS Code workspace files) without enabling `wt.copyignored` for all gitignored files.
 
+Patterns are matched against gitignored and untracked files.
+
 > [!NOTE]
 > The worktree base directory (`wt.basedir`) is always excluded from file copying, regardless of copy options. This prevents circular copying when basedir is inside the repository (e.g., `.worktrees/`).
 
@@ -212,6 +231,25 @@ Supported patterns (same as `.gitignore`):
 
 > [!NOTE]
 > If the same file matches both `wt.copy` and `wt.nocopy`, `wt.nocopy` takes precedence.
+
+#### `wt.symlink` / `--symlink`
+
+Symlink matching top-level directories to the source instead of copying them. Uses `.gitignore` syntax.
+
+Because the directory is shared rather than duplicated, worktree creation stays fast no matter how large it is. The flip side is that every worktree sees the same contents, so an install in one worktree changes all of them.
+
+``` console
+$ git config --add wt.copy "node_modules/"
+$ git config --add wt.symlink "node_modules/"
+# or override for a single invocation (multiple patterns supported)
+$ git wt --copy "node_modules/" --symlink "node_modules/" feature-branch
+```
+
+> [!IMPORTANT]
+> `wt.symlink` only redirects directories that are already going to be copied, so on its own it does nothing. Pair it with `wt.copy` (as above), or with `wt.copyignored` / `wt.copyuntracked` if the directory is already covered by those.
+
+> [!NOTE]
+> A symlink is not a directory, so a trailing-slash `.gitignore` pattern such as `node_modules/` does not match the link and git reports it as untracked. That also makes `git wt -d` refuse to remove the worktree. Drop the trailing slash in `.gitignore`, or add the bare name to `.git/info/exclude`.
 
 #### `wt.hook` / `--hook`
 

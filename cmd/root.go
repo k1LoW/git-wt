@@ -74,6 +74,19 @@ Examples:
   git wt -m [<old>] <new>                        Rename worktree directory and branch (safe)
   git wt -M [<old>] <new>                        Force rename (overwrite existing branch, allow moving dirty/locked worktrees)
 
+Note: git-wt has no subcommands. The first non-flag argument is always a target name, never
+      a command, so 'git wt list' creates a worktree named "list". Run 'git wt' with no
+      arguments to list.
+
+Deleting:
+  -d is the safe form and stops short when something would be lost.
+  - If the worktree has modified or untracked files, nothing is deleted.
+    A directory shared through wt.symlink counts as untracked unless the ignore pattern
+    matches the link itself, see wt.symlink below.
+  - If the branch is not fully merged, the worktree is removed but the branch is kept.
+    git-wt reports this and still exits 0, so read the message, not just the exit code.
+  -D skips both checks and removes the worktree together with its branch.
+
 Note: The default branch (e.g., main, master) is protected from accidental deletion or rename.
       Pass --allow-delete-default to override the protection in any of the cases below.
       - With worktree: -d removes the worktree but keeps the branch by default; -m/-M refuses to rename by default.
@@ -93,6 +106,13 @@ Shell Integration:
 
   # powershell ($PROFILE)
   Invoke-Expression (git-wt --init powershell | Out-String)
+
+  The 'cd' is performed by a shell function, so it only exists in a shell that sourced
+  the script above. The binary itself always prints the resulting worktree path as the
+  last line of stdout, which is what that function reads. Git's own progress output and
+  hook output both go to stderr, so scripts and other tools can rely on the last line:
+
+    WT=$(git wt --nocd <branch> | tail -1)
 
 Configuration:
   Configuration is done via git config. All config options can be overridden
@@ -119,6 +139,8 @@ Configuration:
   wt.copy (--copy)
     Patterns for files to always copy, even if gitignored (gitignore syntax).
     Can be specified multiple times. Useful for copying specific IDE files.
+    Patterns are matched against gitignored and untracked files, so this brings
+    files in without enabling wt.copyignored for everything.
     Example: git config --add wt.copy "*.code-workspace"
              git config --add wt.copy ".vscode/"
 
@@ -134,7 +156,15 @@ Configuration:
     Matching top-level directories are symlinked to the source, sharing the
     same files. This is much faster than copying but changes affect all worktrees.
     Can be specified multiple times.
-    Example: git config --add wt.symlink "node_modules/"
+    Note: this only redirects directories that are already going to be copied. On its
+          own it does nothing, so pair it with wt.copy (or wt.copyignored /
+          wt.copyuntracked) to make the directory a copy target first.
+    Note: a symlink is not a directory, so a trailing-slash gitignore pattern such as
+          "node_modules/" does not match the link and git reports it as untracked.
+          That also makes 'git wt -d' refuse to remove the worktree. Drop the trailing
+          slash, or add the bare name to .git/info/exclude.
+    Example: git config --add wt.copy "node_modules/"
+             git config --add wt.symlink "node_modules/"
 
   wt.hook (--hook)
     Commands to run after creating a new worktree.
@@ -195,7 +225,7 @@ func init() {
 	// git-wt uses its own shell integration via --init flag instead.
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
-	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch by name or path (safe delete, only if merged)")
+	rootCmd.Flags().BoolVarP(&deleteFlag, "delete", "d", false, "Delete worktree and branch by name or path (safe delete, refuses a dirty worktree and keeps an unmerged branch)")
 	rootCmd.Flags().BoolVarP(&forceDeleteFlag, "force-delete", "D", false, "Force delete worktree and branch by name or path")
 	rootCmd.Flags().BoolVarP(&moveFlag, "move", "m", false, "Rename worktree directory and branch (safe rename)")
 	rootCmd.Flags().BoolVarP(&forceMoveFlag, "force-move", "M", false, "Force rename worktree directory and branch (allow overwriting existing branch and moving dirty/locked worktrees)")
