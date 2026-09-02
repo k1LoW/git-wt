@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/k1LoW/exec"
@@ -352,10 +353,66 @@ func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions)
 	return copyAfterAdd(ctx, ac, path, copyOpts)
 }
 
+// qualifyStartPoint rewrites a start point that names a branch existing only
+// on a remote to its remote-qualified form (e.g. "develop" -> "origin/develop").
+//
+// Since git v2.42.0 (commit 128e5496b3) `git worktree add -b <new-branch>
+// <path> <start-point>` applies branch DWIM when <start-point> does not
+// resolve locally but matches exactly one remote-tracking branch: -b is
+// silently dropped and a local branch named after <start-point> is created and
+// checked out instead. The worktree directory still carries <new-branch>, so
+// the mismatch is easy to miss and commits land on the wrong branch.
+// Qualifying the start point keeps -b authoritative.
+//
+// Anything that already resolves (local branch, tag, "origin/x", a SHA,
+// "HEAD~1", ...) and anything that resolves nowhere is passed through
+// untouched, so git keeps reporting its own errors.
+func qualifyStartPoint(ctx context.Context, startPoint string) (string, error) {
+	if startPoint == "" {
+		return startPoint, nil
+	}
+	resolves, err := ResolvesToCommit(ctx, startPoint)
+	if err != nil {
+		return "", err
+	}
+	if resolves {
+		return startPoint, nil
+	}
+
+	remotes, err := RemoteTrackingBranchesNamed(ctx, startPoint)
+	if err != nil {
+		return "", err
+	}
+	switch len(remotes) {
+	case 0:
+		return startPoint, nil
+	case 1:
+		fmt.Fprintf(os.Stderr, "Using %s as the start point ('%s' has no local branch)\n", remotes[0], startPoint)
+		return remotes[0], nil
+	}
+
+	// Ambiguous: git's own DWIM gives up here too. Honor the same config git
+	// uses to disambiguate before refusing.
+	if values, err := GitConfig(ctx, "checkout.defaultRemote"); err == nil && len(values) > 0 {
+		preferred := values[len(values)-1] + "/" + startPoint
+		if slices.Contains(remotes, preferred) {
+			fmt.Fprintf(os.Stderr, "Using %s as the start point (checkout.defaultRemote)\n", preferred)
+			return preferred, nil
+		}
+	}
+	return "", fmt.Errorf("start point %q has no local branch and matches several remotes (%s): qualify it (e.g. %s) or set checkout.defaultRemote",
+		startPoint, strings.Join(remotes, ", "), remotes[0])
+}
+
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.
 // If startPoint is specified, the new branch will be created from that commit/branch.
 func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint string, copyOpts CopyOptions) error {
 	ac, err := prepareAdd(ctx, path)
+	if err != nil {
+		return err
+	}
+
+	startPoint, err = qualifyStartPoint(ctx, startPoint)
 	if err != nil {
 		return err
 	}
