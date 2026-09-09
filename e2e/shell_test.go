@@ -2,6 +2,7 @@
 //   - TestE2E_InitScript: --init script generation (bash/zsh/fish/powershell, nocd, unsupported_shell)
 //   - TestE2E_ShellIntegration_StdoutFormat: stdout format for shell integration compatibility
 //   - TestE2E_ShellIntegration: shell integration cd tests (bash, zsh, fish, powershell, nocd, hook_failure)
+//     Note: the PowerShell subtests only run on Windows; see the windows job in .github/workflows/ci.yml
 package e2e
 
 import (
@@ -605,6 +606,47 @@ pwd
 		}
 
 		assertHookFailureCd(t, string(out), "hookfail-fish-test")
+	})
+
+	t.Run("hook_failure_powershell", func(t *testing.T) {
+		t.Parallel()
+		// PowerShell init script uses git.exe which is Windows-specific
+		if runtime.GOOS != "windows" {
+			t.Skip("PowerShell shell integration test is only supported on Windows")
+		}
+
+		var pwshPath string
+		if p, err := exec.LookPath("pwsh"); err == nil {
+			pwshPath = p
+		} else if p, err := exec.LookPath("powershell"); err == nil {
+			pwshPath = p
+		} else {
+			t.Skip("PowerShell not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+Set-Location %q
+$env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
+Invoke-Expression (git wt --init powershell | Out-String)
+
+# Test: a failing hook should still cd to the created worktree, and should still
+# report a non-zero exit code
+git wt --hook "exit 3" hookfail-pwsh-test 2>$null
+Write-Output "exit=$LASTEXITCODE"
+Get-Location | Select-Object -ExpandProperty Path
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command(pwshPath, "-NoProfile", "-Command", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("PowerShell shell integration with failing hook failed: %v\noutput: %s", err, out)
+		}
+
+		assertHookFailureCd(t, string(out), "hookfail-pwsh-test")
 	})
 }
 
