@@ -374,13 +374,13 @@ const powershellGitWrapper = "" +
 	"        }\n" +
 	"        # Pass git-wt's exit code through. A hook can fail after the worktree was\n" +
 	"        # created, and cd should still happen in that case. Returning the code would\n" +
-	"        # write the number to stdout, and a function cannot set its own exit code.\n" +
-	"        # Write-Error is not enough either, because a non-terminating error inside a\n" +
-	"        # simple function leaves $? true at the call site, so && would keep going.\n" +
-	"        # Exiting a throwaway cmd.exe sets $? and $LASTEXITCODE the way any native\n" +
-	"        # command does. git-wt has already reported the failure on stderr.\n" +
+	"        # write the number to stdout instead, so $LASTEXITCODE carries it.\n" +
+	"        # $? cannot carry it. A function call reports success to its caller whatever\n" +
+	"        # happened inside it, so && does not stop here the way it would after a\n" +
+	"        # native command. The alternatives are worse. throw would abort the caller's\n" +
+	"        # script outright, and $PSCmdlet.WriteError needs an advanced function, which\n" +
+	"        # gives up $args and with it the pass-through of arbitrary git arguments.\n" +
 	"        $global:LASTEXITCODE = $exitCode\n" +
-	"        & cmd.exe /c \"exit $exitCode\"\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +
 	"    }\n" +

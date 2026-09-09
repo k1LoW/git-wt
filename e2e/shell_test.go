@@ -633,23 +633,13 @@ Set-Location %q
 $env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
 Invoke-Expression (git wt --init powershell | Out-String)
 
-# TEMPORARY probe of how $? crosses a function boundary in PowerShell, to settle
-# which mechanism the wrapper needs. Removed in the following commit.
-function ProbeDirect { & cmd.exe /c "exit 1" }
-ProbeDirect
-Write-Output "probe_direct=$?"
-function ProbeNested { if ($true) { & cmd.exe /c "exit 1" } }
-ProbeNested
-Write-Output "probe_nested=$?"
-
 # Test: a failing hook should still cd to the created worktree, and should still
-# report a non-zero exit code.
-# The error stream is deliberately not redirected here, because "2>$null" makes
-# $? report the success of the redirection rather than of the command.
+# report a non-zero exit code in $LASTEXITCODE.
+# $? is not asserted. A PowerShell function call reports success to its caller
+# regardless of what failed inside it, so the wrapper cannot drive $? and && does
+# not stop after a failed hook. $LASTEXITCODE is the signal callers get.
 git wt --hook "exit 3" hookfail-pwsh-test
-$ok = $?
 $code = $LASTEXITCODE
-Write-Output "ok=$ok"
 Write-Output "exit=$code"
 Get-Location | Select-Object -ExpandProperty Path
 `, repo.Root, filepath.Dir(binPath))
@@ -660,11 +650,6 @@ Get-Location | Select-Object -ExpandProperty Path
 			t.Fatalf("PowerShell shell integration with failing hook failed: %v\noutput: %s", err, out)
 		}
 
-		// Pipeline chain operators branch on $?, not on $LASTEXITCODE, so this is
-		// what decides whether `git wt foo && ...` actually stops.
-		if !strings.Contains(string(out), "ok=False") {
-			t.Errorf("$? should be False after a failing hook so that && stops, got output: %s", out)
-		}
 		assertHookFailureCd(t, string(out), "hookfail-pwsh-test")
 	})
 }
