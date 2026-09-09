@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.29.2](https://github.com/k1LoW/git-wt/compare/v0.29.1...v0.29.2) - 2026-09-09
+
+### Other Changes
+- fix(add): keep -b authoritative when start-point is a remote-only branch by @mahirhir in https://github.com/k1LoW/git-wt/pull/213
+- chore(deps): bump Songmu/tagpr from 1.20.1 to 1.20.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/214
+- ci: report coverage for every run by @k1LoW in https://github.com/k1LoW/git-wt/pull/217
+
 ## [v0.29.1](https://github.com/k1LoW/git-wt/compare/v0.29.0...v0.29.1) - 2026-08-14
 
 ### Fix bug 🐛
