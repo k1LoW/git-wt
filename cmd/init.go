@@ -230,8 +230,12 @@ function git --wraps git
         set -lx GIT_WT_SHELL_INTEGRATION 1
         set -l result (command git wt $argv[2..])
         set -l exit_code $status
-        # Get the last line for cd target
-        set -l last_line $result[-1]
+        # Get the last line for cd target. A failing git wt can print nothing at
+        # all, so the index is guarded rather than assumed to exist.
+        set -l last_line ""
+        if test (count $result) -gt 0
+            set last_line $result[-1]
+        end
         if test -d "$last_line"
             # Print all lines except the last (intermediate paths)
             for line in $result[1..-2]
@@ -321,8 +325,14 @@ const powershellGitWrapper = "" +
 	"            # Get existing worktree paths before running git wt\n" +
 	"            $existingWorktrees = @(& git.exe worktree list --porcelain 2>$null | Where-Object { $_ -match '^worktree ' } | ForEach-Object { $_ -replace '^worktree ', '' })\n" +
 	"        }\n" +
+	"        # Function-scoped, so a caller running with Stop does not turn git-wt's\n" +
+	"        # own stderr or its non-zero exit into a terminating error in here.\n" +
+	"        $ErrorActionPreference = \"Continue\"\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = \"1\"\n" +
-	"        $result = & git.exe wt @wtArgs 2>&1\n" +
+	"        # stderr is left to flow to the terminal so that only the worktree path\n" +
+	"        # is captured. Merging it with 2>&1 put git's progress output and the\n" +
+	"        # error line into $result, where the last line is then not the path.\n" +
+	"        $result = & git.exe wt @wtArgs\n" +
 	"        $exitCode = $LASTEXITCODE\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = $null\n" +
 	"        # Get the last line for cd target\n" +
