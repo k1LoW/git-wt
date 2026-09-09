@@ -380,9 +380,7 @@ const powershellGitWrapper = "" +
 	"        # Exiting a throwaway cmd.exe sets $? and $LASTEXITCODE the way any native\n" +
 	"        # command does. git-wt has already reported the failure on stderr.\n" +
 	"        $global:LASTEXITCODE = $exitCode\n" +
-	"        if ($exitCode -ne 0) {\n" +
-	"            & cmd.exe /c \"exit $exitCode\"\n" +
-	"        }\n" +
+	"        & cmd.exe /c \"exit $exitCode\"\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +
 	"    }\n" +

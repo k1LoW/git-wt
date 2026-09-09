@@ -633,6 +633,15 @@ Set-Location %q
 $env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
 Invoke-Expression (git wt --init powershell | Out-String)
 
+# TEMPORARY probe of how $? crosses a function boundary in PowerShell, to settle
+# which mechanism the wrapper needs. Removed in the following commit.
+function ProbeDirect { & cmd.exe /c "exit 1" }
+ProbeDirect
+Write-Output "probe_direct=$?"
+function ProbeNested { if ($true) { & cmd.exe /c "exit 1" } }
+ProbeNested
+Write-Output "probe_nested=$?"
+
 # Test: a failing hook should still cd to the created worktree, and should still
 # report a non-zero exit code.
 # The error stream is deliberately not redirected here, because "2>$null" makes
