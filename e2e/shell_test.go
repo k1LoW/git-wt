@@ -634,8 +634,10 @@ $env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
 Invoke-Expression (git wt --init powershell | Out-String)
 
 # Test: a failing hook should still cd to the created worktree, and should still
-# report a non-zero exit code
-git wt --hook "exit 3" hookfail-pwsh-test 2>$null
+# report a non-zero exit code.
+# The error stream is deliberately not redirected here, because "2>$null" makes
+# $? report the success of the redirection rather than of the command.
+git wt --hook "exit 3" hookfail-pwsh-test
 $ok = $?
 $code = $LASTEXITCODE
 Write-Output "ok=$ok"
