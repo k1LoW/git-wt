@@ -172,7 +172,7 @@ Configuration:
     Note: Hooks do NOT run when switching to an existing worktree.
     Note: A failing hook skips the remaining hooks and exits non-zero, but the
           worktree is already created, so shell integration still changes
-          directory into it.
+          directory into it unless wt.nocd or --nocd prevents it.
           Hooks run through sh -c, so write "cmd || true" to tolerate a failure.
     Example: git config --add wt.hook "npm install"
              git config --add wt.hook "go generate ./..."
