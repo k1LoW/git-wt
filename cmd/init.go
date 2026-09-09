@@ -374,11 +374,14 @@ const powershellGitWrapper = "" +
 	"        }\n" +
 	"        # Pass git-wt's exit code through. A hook can fail after the worktree was\n" +
 	"        # created, and cd should still happen in that case. Returning the code would\n" +
-	"        # write the number to stdout, and a function cannot set its own exit code,\n" +
-	"        # so the failure status is re-established through Write-Error.\n" +
+	"        # write the number to stdout, and a function cannot set its own exit code.\n" +
+	"        # Write-Error is not enough either, because a non-terminating error inside a\n" +
+	"        # simple function leaves $? true at the call site, so && would keep going.\n" +
+	"        # Exiting a throwaway cmd.exe sets $? and $LASTEXITCODE the way any native\n" +
+	"        # command does. git-wt has already reported the failure on stderr.\n" +
 	"        $global:LASTEXITCODE = $exitCode\n" +
 	"        if ($exitCode -ne 0) {\n" +
-	"            Write-Error \"git wt exited with code $exitCode\" -ErrorAction Continue\n" +
+	"            & cmd.exe /c \"exit $exitCode\"\n" +
 	"        }\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +
