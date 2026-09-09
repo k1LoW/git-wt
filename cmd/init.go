@@ -37,11 +37,11 @@ git() {
         local exit_code=$?
         # Get the last line for cd target
         local last_line
-        last_line=$(echo "$result" | tail -n 1)
+        last_line=$(printf '%s\n' "$result" | tail -n 1)
         if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
-            echo "$result" | sed '$d' | while IFS= read -r line; do
-                [[ -n "$line" ]] && echo "$line"
+            printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
+                [[ -n "$line" ]] && printf '%s\n' "$line"
             done
             # Determine whether to cd
             local should_cd=true
@@ -55,7 +55,7 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
@@ -64,13 +64,13 @@ git() {
             if [[ "$should_cd" == "true" ]]; then
                 cd "$last_line" || return $?
             else
-                echo "$last_line"
+                printf '%s\n' "$last_line"
             fi
             # Pass git-wt's exit code through. A hook can fail after the worktree
             # was created, and cd should still happen in that case.
             return $exit_code
         else
-            echo "$result"
+            printf '%s\n' "$result"
             return $exit_code
         fi
     else
@@ -126,11 +126,11 @@ git() {
         local exit_code=$?
         # Get the last line for cd target
         local last_line
-        last_line=$(echo "$result" | tail -n 1)
+        last_line=$(printf '%s\n' "$result" | tail -n 1)
         if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
-            echo "$result" | sed '$d' | while IFS= read -r line; do
-                [[ -n "$line" ]] && echo "$line"
+            printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
+                [[ -n "$line" ]] && printf '%s\n' "$line"
             done
             # Determine whether to cd
             local should_cd=true
@@ -144,7 +144,7 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
@@ -153,13 +153,13 @@ git() {
             if [[ "$should_cd" == "true" ]]; then
                 cd "$last_line" || return $?
             else
-                echo "$last_line"
+                printf '%s\n' "$last_line"
             fi
             # Pass git-wt's exit code through. A hook can fail after the worktree
             # was created, and cd should still happen in that case.
             return $exit_code
         else
-            echo "$result"
+            printf '%s\n' "$result"
             return $exit_code
         fi
     else
