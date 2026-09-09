@@ -328,7 +328,7 @@ const powershellGitWrapper = "" +
 	"        # Get the last line for cd target\n" +
 	"        $lines = @($result -split \"`n\" | Where-Object { $_ -ne \"\" })\n" +
 	"        $lastLine = $lines[-1]\n" +
-	"        if (Test-Path $lastLine -PathType Container) {\n" +
+	"        if ($lastLine -and (Test-Path -LiteralPath $lastLine -PathType Container)) {\n" +
 	"            # Print all lines except the last (intermediate paths)\n" +
 	"            if ($lines.Count -gt 1) {\n" +
 	"                $lines[0..($lines.Count-2)] | ForEach-Object { Write-Output $_ }\n" +
@@ -352,16 +352,23 @@ const powershellGitWrapper = "" +
 	"                }\n" +
 	"            }\n" +
 	"            if ($shouldCd) {\n" +
-	"                Set-Location $lastLine\n" +
+	"                Set-Location -LiteralPath $lastLine\n" +
+	"                # Set-Location reports a failure as a non-terminating error, so a\n" +
+	"                # failed cd has to replace the exit code to stay visible.\n" +
+	"                if (-not $?) { $exitCode = 1 }\n" +
 	"            } else {\n" +
 	"                Write-Output $lastLine\n" +
 	"            }\n" +
-	"            # Pass git-wt's exit code through. A hook can fail after the worktree\n" +
-	"            # was created, and cd should still happen in that case.\n" +
-	"            return $exitCode\n" +
 	"        } else {\n" +
 	"            Write-Output $result\n" +
-	"            return $exitCode\n" +
+	"        }\n" +
+	"        # Pass git-wt's exit code through. A hook can fail after the worktree was\n" +
+	"        # created, and cd should still happen in that case. Returning the code would\n" +
+	"        # write the number to stdout, and a function cannot set its own exit code,\n" +
+	"        # so the failure status is re-established through Write-Error.\n" +
+	"        $global:LASTEXITCODE = $exitCode\n" +
+	"        if ($exitCode -ne 0) {\n" +
+	"            Write-Error \"git wt exited with code $exitCode\" -ErrorAction Continue\n" +
 	"        }\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +
