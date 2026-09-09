@@ -337,7 +337,9 @@ const powershellGitWrapper = "" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = $null\n" +
 	"        # Get the last line for cd target\n" +
 	"        $lines = @($result -split \"`n\" | Where-Object { $_ -ne \"\" })\n" +
-	"        $lastLine = $lines[-1]\n" +
+	"        # A failing git wt can write nothing at all, and indexing an empty array\n" +
+	"        # throws under Set-StrictMode.\n" +
+	"        $lastLine = if ($lines.Count -gt 0) { $lines[-1] } else { \"\" }\n" +
 	"        if ($lastLine -and (Test-Path -LiteralPath $lastLine -PathType Container)) {\n" +
 	"            # Print all lines except the last (intermediate paths)\n" +
 	"            if ($lines.Count -gt 1) {\n" +

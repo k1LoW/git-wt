@@ -1,7 +1,7 @@
 // shell_test.go contains shell integration tests:
 //   - TestE2E_InitScript: --init script generation (bash/zsh/fish/powershell, nocd, unsupported_shell)
 //   - TestE2E_ShellIntegration_StdoutFormat: stdout format for shell integration compatibility
-//   - TestE2E_ShellIntegration: shell integration cd tests (bash, zsh, fish, powershell, nocd, hook_failure)
+//   - TestE2E_ShellIntegration: shell integration cd tests (bash, zsh, fish, powershell, nocd, hook_failure, failure_without_stdout)
 //     Note: the PowerShell subtests only run on Windows; see the windows job in .github/workflows/ci.yml
 package e2e
 
@@ -652,6 +652,103 @@ Get-Location | Select-Object -ExpandProperty Path
 
 		assertHookFailureCd(t, string(out), "hookfail-pwsh-test")
 	})
+
+	t.Run("failure_without_stdout_fish", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("fish"); err != nil {
+			t.Skip("fish not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+cd %q
+set -x PATH %s $PATH
+git wt --init fish | source
+
+# Test: a failure that prints nothing to stdout must not move the shell, and must
+# not be masked by indexing the empty result
+git wt --bogus-flag 2>/dev/null
+echo "exit=$status"
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("fish", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fish shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		assertFailureKeptCwd(t, string(out), repo.Root)
+	})
+
+	t.Run("failure_without_stdout_powershell", func(t *testing.T) {
+		t.Parallel()
+		// PowerShell init script uses git.exe which is Windows-specific
+		if runtime.GOOS != "windows" {
+			t.Skip("PowerShell shell integration test is only supported on Windows")
+		}
+
+		var pwshPath string
+		if p, err := exec.LookPath("pwsh"); err == nil {
+			pwshPath = p
+		} else if p, err := exec.LookPath("powershell"); err == nil {
+			pwshPath = p
+		} else {
+			t.Skip("PowerShell not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+Set-StrictMode -Version Latest
+Set-Location %q
+$env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
+Invoke-Expression (git wt --init powershell | Out-String)
+
+# Test: a failure that prints nothing to stdout must not move the shell, and must
+# not throw on the empty index under StrictMode
+git wt --bogus-flag 2>$null
+Write-Output "exit=$LASTEXITCODE"
+Get-Location | Select-Object -ExpandProperty Path
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command(pwshPath, "-NoProfile", "-Command", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("PowerShell shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		assertFailureKeptCwd(t, string(out), repo.Root)
+	})
+}
+
+// assertFailureKeptCwd asserts that a git wt failure which prints nothing to
+// stdout leaves the shell where it was and still reports a non-zero exit code.
+// The script under test prints "exit=<code>" followed by pwd as its last two lines.
+func assertFailureKeptCwd(t *testing.T, out, repoRoot string) {
+	t.Helper()
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("output should have at least 2 lines (exit code and pwd), got: %q", out)
+	}
+	exitLine := strings.TrimSpace(lines[len(lines)-2])
+	pwd := strings.TrimSpace(lines[len(lines)-1])
+
+	if !strings.HasPrefix(exitLine, "exit=") {
+		t.Fatalf("second to last line should be the exit code, got: %q", exitLine)
+	}
+	if exitLine == "exit=0" {
+		t.Error("exit code should stay non-zero when git wt fails")
+	}
+	if pwd != repoRoot {
+		t.Errorf("pwd should still be the original repo root %q, got: %s", repoRoot, pwd)
+	}
 }
 
 // assertHookFailureCd asserts that the shell wrapper changed directory into the
