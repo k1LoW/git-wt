@@ -636,7 +636,10 @@ Invoke-Expression (git wt --init powershell | Out-String)
 # Test: a failing hook should still cd to the created worktree, and should still
 # report a non-zero exit code
 git wt --hook "exit 3" hookfail-pwsh-test 2>$null
-Write-Output "exit=$LASTEXITCODE"
+$ok = $?
+$code = $LASTEXITCODE
+Write-Output "ok=$ok"
+Write-Output "exit=$code"
 Get-Location | Select-Object -ExpandProperty Path
 `, repo.Root, filepath.Dir(binPath))
 
@@ -646,6 +649,11 @@ Get-Location | Select-Object -ExpandProperty Path
 			t.Fatalf("PowerShell shell integration with failing hook failed: %v\noutput: %s", err, out)
 		}
 
+		// Pipeline chain operators branch on $?, not on $LASTEXITCODE, so this is
+		// what decides whether `git wt foo && ...` actually stops.
+		if !strings.Contains(string(out), "ok=False") {
+			t.Errorf("$? should be False after a failing hook so that && stops, got output: %s", out)
+		}
 		assertHookFailureCd(t, string(out), "hookfail-pwsh-test")
 	})
 }
