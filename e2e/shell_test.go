@@ -629,6 +629,9 @@ pwd
 		repo.Commit("initial commit")
 
 		script := fmt.Sprintf(`
+# Stop is what makes the wrapper's function-scoped ErrorActionPreference matter,
+# since git-wt writes to stderr and exits non-zero on this path
+$ErrorActionPreference = "Stop"
 Set-Location %q
 $env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
 Invoke-Expression (git wt --init powershell | Out-String)
