@@ -559,3 +559,87 @@ func TestRemoveWorktree_Force(t *testing.T) {
 		t.Error("worktree should not exist after force removal")
 	}
 }
+
+// pushAndDropLocal creates branch on the given remote and removes the local
+// copy, leaving it reachable only as <remote>/<branch>. This is the state that
+// triggers git's branch DWIM in `git worktree add -b`.
+func pushAndDropLocal(t *testing.T, repo *testutil.TestRepo, remote, branch string) {
+	t.Helper()
+	remoteDir := filepath.Join(t.TempDir(), remote+".git")
+	repo.Git("init", "--bare", remoteDir)
+	repo.Git("remote", "add", remote, remoteDir)
+	repo.Git("checkout", "-b", branch)
+	repo.Git("commit", "--allow-empty", "-m", "on "+branch)
+	repo.Git("push", remote, branch)
+	repo.Git("checkout", "main")
+	repo.Git("branch", "-D", branch)
+}
+
+func TestAddWorktreeWithNewBranch_RemoteOnlyStartPoint(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	pushAndDropLocal(t, repo, "origin", "develop")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "my-feature")
+	if err := AddWorktreeWithNewBranch(t.Context(), wtPath, "my-feature", "develop", CopyOptions{}); err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
+	}
+
+	// The requested branch must be the one checked out, not a local branch
+	// DWIM'd from the start point.
+	if got := repo.Git("-C", wtPath, "branch", "--show-current"); got != "my-feature" {
+		t.Errorf("checked out branch = %q, want %q", got, "my-feature")
+	}
+	exists, err := LocalBranchExists(t.Context(), "develop")
+	if err != nil {
+		t.Fatalf("LocalBranchExists failed: %v", err)
+	}
+	if exists {
+		t.Error("local branch \"develop\" was created, but only \"my-feature\" was requested")
+	}
+
+	// The start point must still be honored.
+	got := repo.Git("-C", wtPath, "rev-parse", "HEAD")
+	want := repo.Git("rev-parse", "refs/remotes/origin/develop")
+	if got != want {
+		t.Errorf("worktree HEAD = %s, want origin/develop (%s)", got, want)
+	}
+}
+
+func TestAddWorktreeWithNewBranch_RemoteOnlyStartPointAmbiguous(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	pushAndDropLocal(t, repo, "origin", "develop")
+	pushAndDropLocal(t, repo, "upstream", "develop")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "my-feature")
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "my-feature", "develop", CopyOptions{})
+	if err == nil {
+		t.Fatal("expected an error for a start point matching several remotes, got nil")
+	}
+	if _, statErr := os.Stat(wtPath); statErr == nil {
+		t.Error("worktree was created despite the ambiguous start point")
+	}
+
+	// checkout.defaultRemote resolves the ambiguity, as it does for git itself.
+	repo.Git("config", "checkout.defaultRemote", "upstream")
+	if err := AddWorktreeWithNewBranch(t.Context(), wtPath, "my-feature", "develop", CopyOptions{}); err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch with checkout.defaultRemote failed: %v", err)
+	}
+	if got := repo.Git("-C", wtPath, "branch", "--show-current"); got != "my-feature" {
+		t.Errorf("checked out branch = %q, want %q", got, "my-feature")
+	}
+	got := repo.Git("-C", wtPath, "rev-parse", "HEAD")
+	want := repo.Git("rev-parse", "refs/remotes/upstream/develop")
+	if got != want {
+		t.Errorf("worktree HEAD = %s, want upstream/develop (%s)", got, want)
+	}
+}

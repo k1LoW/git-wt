@@ -44,6 +44,40 @@ func LocalBranchExists(ctx context.Context, name string) (bool, error) {
 	return false, nil
 }
 
+// ResolvesToCommit reports whether name resolves to a commit under git's
+// normal revision rules (local branch, tag, remote-qualified ref such as
+// "origin/main", object name, "HEAD~1", ...). A bare branch name that exists
+// only on a remote does NOT resolve, which is exactly the case where
+// `git worktree add` falls back to branch DWIM.
+func ResolvesToCommit(ctx context.Context, name string) (bool, error) {
+	cmd, err := gitCommand(ctx, "rev-parse", "--verify", "--quiet", name+"^{commit}")
+	if err != nil {
+		return false, err
+	}
+	return cmd.Run() == nil, nil
+}
+
+// RemoteTrackingBranchesNamed returns the remote-tracking branches, in short
+// form (e.g. "origin/develop"), that exist under any remote with the given
+// bare branch name.
+func RemoteTrackingBranchesNamed(ctx context.Context, name string) ([]string, error) {
+	cmd, err := gitCommand(ctx, "for-each-ref", "--format=%(refname:short)", "refs/remotes/*/"+name)
+	if err != nil {
+		return nil, err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var refs []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			refs = append(refs, line)
+		}
+	}
+	return refs, nil
+}
+
 // CreateBranch creates a new branch at the current HEAD.
 func CreateBranch(ctx context.Context, name string) error {
 	cmd, err := gitCommand(ctx, "branch", name)
