@@ -38,7 +38,7 @@ git() {
         # Get the last line for cd target
         local last_line
         last_line=$(echo "$result" | tail -n 1)
-        if [[ $exit_code -eq 0 && -d "$last_line" ]]; then
+        if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
             echo "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && echo "$line"
@@ -62,10 +62,13 @@ git() {
                 fi
             fi
             if [[ "$should_cd" == "true" ]]; then
-                cd "$last_line"
+                cd "$last_line" || return $?
             else
                 echo "$last_line"
             fi
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
             echo "$result"
             return $exit_code
@@ -124,7 +127,7 @@ git() {
         # Get the last line for cd target
         local last_line
         last_line=$(echo "$result" | tail -n 1)
-        if [[ $exit_code -eq 0 && -d "$last_line" ]]; then
+        if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
             echo "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && echo "$line"
@@ -148,10 +151,13 @@ git() {
                 fi
             fi
             if [[ "$should_cd" == "true" ]]; then
-                cd "$last_line"
+                cd "$last_line" || return $?
             else
                 echo "$last_line"
             fi
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
             echo "$result"
             return $exit_code
@@ -226,7 +232,7 @@ function git --wraps git
         set -l exit_code $status
         # Get the last line for cd target
         set -l last_line $result[-1]
-        if test $exit_code -eq 0 -a -d "$last_line"
+        if test -d "$last_line"
             # Print all lines except the last (intermediate paths)
             for line in $result[1..-2]
                 printf "%s\n" "$line"
@@ -250,10 +256,13 @@ function git --wraps git
                 end
             end
             if test "$should_cd" = "true"
-                cd "$last_line"
+                cd "$last_line"; or return $status
             else
                 printf "%s\n" "$last_line"
             end
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
             for line in $result
                 printf "%s\n" "$line"
@@ -314,11 +323,12 @@ const powershellGitWrapper = "" +
 	"        }\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = \"1\"\n" +
 	"        $result = & git.exe wt @wtArgs 2>&1\n" +
+	"        $exitCode = $LASTEXITCODE\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = $null\n" +
 	"        # Get the last line for cd target\n" +
 	"        $lines = @($result -split \"`n\" | Where-Object { $_ -ne \"\" })\n" +
 	"        $lastLine = $lines[-1]\n" +
-	"        if ($LASTEXITCODE -eq 0 -and (Test-Path $lastLine -PathType Container)) {\n" +
+	"        if (Test-Path $lastLine -PathType Container) {\n" +
 	"            # Print all lines except the last (intermediate paths)\n" +
 	"            if ($lines.Count -gt 1) {\n" +
 	"                $lines[0..($lines.Count-2)] | ForEach-Object { Write-Output $_ }\n" +
@@ -346,9 +356,12 @@ const powershellGitWrapper = "" +
 	"            } else {\n" +
 	"                Write-Output $lastLine\n" +
 	"            }\n" +
+	"            # Pass git-wt's exit code through. A hook can fail after the worktree\n" +
+	"            # was created, and cd should still happen in that case.\n" +
+	"            return $exitCode\n" +
 	"        } else {\n" +
 	"            Write-Output $result\n" +
-	"            return $LASTEXITCODE\n" +
+	"            return $exitCode\n" +
 	"        }\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +

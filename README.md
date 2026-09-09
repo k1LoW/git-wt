@@ -264,7 +264,8 @@ $ git wt --hook "npm install" feature-branch
 
 > [!NOTE]
 > - Hooks only run when **creating** a new worktree, not when switching to an existing one.
-> - If a hook fails, execution stops immediately and `git wt` exits with an error (shell integration will not `cd` to the worktree).
+> - If a hook fails, the remaining hooks are skipped and `git wt` exits with an error. The worktree has already been created at that point, so shell integration still `cd`s into it, and the non-zero exit code stays visible to scripts.
+> - Hooks run through `sh -c`, so a hook whose failure should be tolerated can be written as `git config --add wt.hook "direnv allow || true"`.
 
 #### `wt.deletehook` / `--deletehook`
 

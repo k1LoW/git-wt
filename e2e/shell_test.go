@@ -1,7 +1,7 @@
 // shell_test.go contains shell integration tests:
 //   - TestE2E_InitScript: --init script generation (bash/zsh/fish/powershell, nocd, unsupported_shell)
 //   - TestE2E_ShellIntegration_StdoutFormat: stdout format for shell integration compatibility
-//   - TestE2E_ShellIntegration: shell integration cd tests (bash, zsh, fish, powershell, nocd)
+//   - TestE2E_ShellIntegration: shell integration cd tests (bash, zsh, fish, powershell, nocd, hook_failure)
 package e2e
 
 import (
@@ -513,4 +513,121 @@ pwd
 			t.Errorf("pwd should be original repo root %q, got: %s", repo.Root, pwd)
 		}
 	})
+
+	t.Run("hook_failure_bash", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("bash"); err != nil {
+			t.Skip("bash not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init bash)"
+
+# Test: a failing hook should still cd to the created worktree, and should still
+# report a non-zero exit code
+git wt --hook "exit 3" hookfail-bash-test 2>/dev/null
+echo "exit=$?"
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("bash", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("bash shell integration with failing hook failed: %v\noutput: %s", err, out)
+		}
+
+		assertHookFailureCd(t, string(out), "hookfail-bash-test")
+	})
+
+	t.Run("hook_failure_zsh", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("zsh"); err != nil {
+			t.Skip("zsh not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init zsh)"
+
+# Test: a failing hook should still cd to the created worktree, and should still
+# report a non-zero exit code
+git wt --hook "exit 3" hookfail-zsh-test 2>/dev/null
+echo "exit=$?"
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("zsh", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("zsh shell integration with failing hook failed: %v\noutput: %s", err, out)
+		}
+
+		assertHookFailureCd(t, string(out), "hookfail-zsh-test")
+	})
+
+	t.Run("hook_failure_fish", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("fish"); err != nil {
+			t.Skip("fish not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+cd %q
+set -x PATH %s $PATH
+git wt --init fish | source
+
+# Test: a failing hook should still cd to the created worktree, and should still
+# report a non-zero exit code
+git wt --hook "exit 3" hookfail-fish-test 2>/dev/null
+echo "exit=$status"
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("fish", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fish shell integration with failing hook failed: %v\noutput: %s", err, out)
+		}
+
+		assertHookFailureCd(t, string(out), "hookfail-fish-test")
+	})
+}
+
+// assertHookFailureCd asserts that the shell wrapper changed directory into the
+// newly created worktree while keeping the non-zero exit code of the failed hook.
+// The script under test prints "exit=<code>" followed by pwd as its last two lines.
+func assertHookFailureCd(t *testing.T, out, wtName string) {
+	t.Helper()
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("output should have at least 2 lines (exit code and pwd), got: %q", out)
+	}
+	exitLine := strings.TrimSpace(lines[len(lines)-2])
+	pwd := strings.TrimSpace(lines[len(lines)-1])
+
+	if !strings.HasPrefix(exitLine, "exit=") {
+		t.Fatalf("second to last line should be the exit code, got: %q", exitLine)
+	}
+	if exitLine == "exit=0" {
+		t.Error("exit code should stay non-zero when a hook fails")
+	}
+	if !strings.Contains(pwd, wtName) {
+		t.Errorf("pwd should contain worktree path even though the hook failed, got: %s", pwd)
+	}
 }
