@@ -170,6 +170,10 @@ Configuration:
     Commands to run after creating a new worktree.
     Can be specified multiple times. Hooks run in the new worktree directory.
     Note: Hooks do NOT run when switching to an existing worktree.
+    Note: A failing hook skips the remaining hooks and exits non-zero, but the
+          worktree is already created, so shell integration still changes
+          directory into it unless wt.nocd or --nocd prevents it.
+          Hooks run through sh -c, so write "cmd || true" to tolerate a failure.
     Example: git config --add wt.hook "npm install"
              git config --add wt.hook "go generate ./..."
 
@@ -1100,7 +1104,9 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 
 	// Run hooks after creating new worktree
 	if err := git.RunHooks(ctx, cfg.Hooks, wtPath, os.Stderr); err != nil {
-		// Print path but return error so shell integration won't cd
+		// The worktree is already created and usable, so the path is still printed
+		// for the shell wrapper to cd into. The error is returned anyway to keep the
+		// hook failure visible in the exit code.
 		fmt.Println(resolveRelative(ctx, wtPath, cfg.Relative))
 		return err
 	}

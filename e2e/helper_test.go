@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -36,6 +37,11 @@ func buildBinary(t *testing.T) string {
 
 	tmpDir := t.TempDir()
 	binPath := filepath.Join(tmpDir, "git-wt")
+	// Windows resolves executables by extension, so a bare name is not runnable
+	// and "git wt" cannot find the subcommand on PATH.
+	if runtime.GOOS == "windows" {
+		binPath += ".exe"
+	}
 
 	cmd := exec.Command("go", "build", "-o", binPath, "..")
 	cmd.Stderr = os.Stderr

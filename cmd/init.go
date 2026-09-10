@@ -37,11 +37,11 @@ git() {
         local exit_code=$?
         # Get the last line for cd target
         local last_line
-        last_line=$(echo "$result" | tail -n 1)
-        if [[ $exit_code -eq 0 && -d "$last_line" ]]; then
+        last_line=$(printf '%s\n' "$result" | tail -n 1)
+        if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
-            echo "$result" | sed '$d' | while IFS= read -r line; do
-                [[ -n "$line" ]] && echo "$line"
+            printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
+                [[ -n "$line" ]] && printf '%s\n' "$line"
             done
             # Determine whether to cd
             local should_cd=true
@@ -55,19 +55,22 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
                 fi
             fi
             if [[ "$should_cd" == "true" ]]; then
-                cd "$last_line"
+                cd "$last_line" || return $?
             else
-                echo "$last_line"
+                printf '%s\n' "$last_line"
             fi
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
-            echo "$result"
+            printf '%s\n' "$result"
             return $exit_code
         fi
     else
@@ -123,11 +126,11 @@ git() {
         local exit_code=$?
         # Get the last line for cd target
         local last_line
-        last_line=$(echo "$result" | tail -n 1)
-        if [[ $exit_code -eq 0 && -d "$last_line" ]]; then
+        last_line=$(printf '%s\n' "$result" | tail -n 1)
+        if [[ -d "$last_line" ]]; then
             # Print all lines except the last (intermediate paths)
-            echo "$result" | sed '$d' | while IFS= read -r line; do
-                [[ -n "$line" ]] && echo "$line"
+            printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
+                [[ -n "$line" ]] && printf '%s\n' "$line"
             done
             # Determine whether to cd
             local should_cd=true
@@ -141,19 +144,22 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif echo "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
                 fi
             fi
             if [[ "$should_cd" == "true" ]]; then
-                cd "$last_line"
+                cd "$last_line" || return $?
             else
-                echo "$last_line"
+                printf '%s\n' "$last_line"
             fi
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
-            echo "$result"
+            printf '%s\n' "$result"
             return $exit_code
         fi
     else
@@ -224,9 +230,13 @@ function git --wraps git
         set -lx GIT_WT_SHELL_INTEGRATION 1
         set -l result (command git wt $argv[2..])
         set -l exit_code $status
-        # Get the last line for cd target
-        set -l last_line $result[-1]
-        if test $exit_code -eq 0 -a -d "$last_line"
+        # Get the last line for cd target. A failing git wt can print nothing at
+        # all, so the index is guarded rather than assumed to exist.
+        set -l last_line ""
+        if test (count $result) -gt 0
+            set last_line $result[-1]
+        end
+        if test -d "$last_line"
             # Print all lines except the last (intermediate paths)
             for line in $result[1..-2]
                 printf "%s\n" "$line"
@@ -250,10 +260,13 @@ function git --wraps git
                 end
             end
             if test "$should_cd" = "true"
-                cd "$last_line"
+                cd "$last_line"; or return $status
             else
                 printf "%s\n" "$last_line"
             end
+            # Pass git-wt's exit code through. A hook can fail after the worktree
+            # was created, and cd should still happen in that case.
+            return $exit_code
         else
             for line in $result
                 printf "%s\n" "$line"
@@ -312,13 +325,22 @@ const powershellGitWrapper = "" +
 	"            # Get existing worktree paths before running git wt\n" +
 	"            $existingWorktrees = @(& git.exe worktree list --porcelain 2>$null | Where-Object { $_ -match '^worktree ' } | ForEach-Object { $_ -replace '^worktree ', '' })\n" +
 	"        }\n" +
+	"        # Function-scoped, so a caller running with Stop does not turn git-wt's\n" +
+	"        # own stderr or its non-zero exit into a terminating error in here.\n" +
+	"        $ErrorActionPreference = \"Continue\"\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = \"1\"\n" +
-	"        $result = & git.exe wt @wtArgs 2>&1\n" +
+	"        # stderr is left to flow to the terminal so that only the worktree path\n" +
+	"        # is captured. Merging it with 2>&1 put git's progress output and the\n" +
+	"        # error line into $result, where the last line is then not the path.\n" +
+	"        $result = & git.exe wt @wtArgs\n" +
+	"        $exitCode = $LASTEXITCODE\n" +
 	"        $env:GIT_WT_SHELL_INTEGRATION = $null\n" +
 	"        # Get the last line for cd target\n" +
 	"        $lines = @($result -split \"`n\" | Where-Object { $_ -ne \"\" })\n" +
-	"        $lastLine = $lines[-1]\n" +
-	"        if ($LASTEXITCODE -eq 0 -and (Test-Path $lastLine -PathType Container)) {\n" +
+	"        # A failing git wt can write nothing at all, and indexing an empty array\n" +
+	"        # throws under Set-StrictMode.\n" +
+	"        $lastLine = if ($lines.Count -gt 0) { $lines[-1] } else { \"\" }\n" +
+	"        if ($lastLine -and (Test-Path -LiteralPath $lastLine -PathType Container)) {\n" +
 	"            # Print all lines except the last (intermediate paths)\n" +
 	"            if ($lines.Count -gt 1) {\n" +
 	"                $lines[0..($lines.Count-2)] | ForEach-Object { Write-Output $_ }\n" +
@@ -342,14 +364,25 @@ const powershellGitWrapper = "" +
 	"                }\n" +
 	"            }\n" +
 	"            if ($shouldCd) {\n" +
-	"                Set-Location $lastLine\n" +
+	"                Set-Location -LiteralPath $lastLine\n" +
+	"                # Set-Location reports a failure as a non-terminating error, so a\n" +
+	"                # failed cd has to replace the exit code to stay visible.\n" +
+	"                if (-not $?) { $exitCode = 1 }\n" +
 	"            } else {\n" +
 	"                Write-Output $lastLine\n" +
 	"            }\n" +
 	"        } else {\n" +
 	"            Write-Output $result\n" +
-	"            return $LASTEXITCODE\n" +
 	"        }\n" +
+	"        # Pass git-wt's exit code through. A hook can fail after the worktree was\n" +
+	"        # created, and cd should still happen in that case. Returning the code would\n" +
+	"        # write the number to stdout instead, so $LASTEXITCODE carries it.\n" +
+	"        # $? cannot carry it. A function call reports success to its caller whatever\n" +
+	"        # happened inside it, so && does not stop here the way it would after a\n" +
+	"        # native command. The alternatives are worse. throw would abort the caller's\n" +
+	"        # script outright, and $PSCmdlet.WriteError needs an advanced function, which\n" +
+	"        # gives up $args and with it the pass-through of arbitrary git arguments.\n" +
+	"        $global:LASTEXITCODE = $exitCode\n" +
 	"    } else {\n" +
 	"        & git.exe @args\n" +
 	"    }\n" +
