@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.29.3](https://github.com/k1LoW/git-wt/compare/v0.29.2...v0.29.3) - 2026-09-11
+
+### Fix bug 🐛
+- fix(shell): cd into the worktree even when a hook fails by @k1LoW in https://github.com/k1LoW/git-wt/pull/218
+### Other Changes
+- chore(deps): bump Songmu/tagpr from 1.20.2 to 1.20.3 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/221
+- chore(deps): bump golang.org/x/sys from 0.47.0 to 0.48.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/220
+
 ## [v0.29.2](https://github.com/k1LoW/git-wt/compare/v0.29.1...v0.29.2) - 2026-09-09
 
 ### Other Changes
