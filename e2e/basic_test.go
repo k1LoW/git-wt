@@ -348,6 +348,127 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("with_remote", func(t *testing.T) {
+		t.Parallel()
+		// Create the "origin" repo
+		originRepo := testutil.NewTestRepo(t)
+		originRepo.CreateFile("README_origin.md", "# Origin")
+		originRepo.Commit("origin initial commit")
+		originRepo.Git("branch", "origin-only")
+		originRepo.CreateFile("origin-file.txt", "origin content")
+		originRepo.Commit("origin second commit")
+		originRepo.Git("branch", "remote-common-name")
+
+		// Create the "other" repo
+		otherRepo := testutil.NewTestRepo(t)
+		otherRepo.CreateFile("README_other.md", "# Other")
+		otherRepo.Commit("other initial commit")
+		otherRepo.Git("branch", "other-only")
+		otherRepo.CreateFile("other-file.txt", "other content")
+		otherRepo.Commit("other second commit")
+		otherRepo.Git("branch", "remote-common-name")
+
+		// Clone the "origin" repo
+		cloneDir := t.TempDir()
+		clonePath := filepath.Join(cloneDir, "clone")
+		cmd := exec.Command("git", "clone", originRepo.Root, clonePath)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git clone failed: %v\noutput: %s", err, out)
+		}
+
+		// Add and fetch the "other" repo
+		cmd = exec.Command("git", "remote", "add", "other", otherRepo.Root)
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git checkout failed: %v\noutput: %s", err, out)
+		}
+		cmd = exec.Command("git", "fetch", "other")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git fetch other failed: %v\noutput: %s", err, out)
+		}
+
+		var out, wtPath, remoteFilePath string
+		var err error
+
+		// origin-only
+		out, err = runGitWt(t, binPath, clonePath, "origin-only")
+		if err != nil {
+			t.Fatalf("git-wt origin-only failed: %v\noutput: %s", err, out)
+		}
+		if !strings.Contains(out, "origin/origin-only") {
+			t.Fatalf("output should contain worktree path with 'origin/origin-only', got: %s", out)
+		}
+		wtPath = worktreePath(out)
+		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree directory was not created at %s", wtPath)
+		}
+		// Verify the worktree is based on the first commit on origin
+		remoteFilePath = filepath.Join(wtPath, "README_origin.md")
+		if _, err = os.Stat(remoteFilePath); os.IsNotExist(err) {
+			t.Error("worktree should have README_origin.md (should be based on origin/origin-only)")
+		}
+		remoteFilePath = filepath.Join(wtPath, "origin-file.txt")
+		if _, err = os.Stat(remoteFilePath); !os.IsNotExist(err) {
+			t.Error("worktree should NOT have origin-file.txt (should be based on origin/origin-only)")
+		}
+
+		// other-only
+		out, err = runGitWt(t, binPath, clonePath, "other-only")
+		if err != nil {
+			t.Fatalf("git-wt other-only failed: %v\noutput: %s", err, out)
+		}
+		if !strings.Contains(out, "other/other-only") {
+			t.Fatalf("output should contain worktree path with 'other/other-only', got: %s", out)
+		}
+		wtPath = worktreePath(out)
+		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree directory was not created at %s", wtPath)
+		}
+		// Verify the worktree is based on the first commit on other
+		remoteFilePath = filepath.Join(wtPath, "README_other.md")
+		if _, err = os.Stat(remoteFilePath); os.IsNotExist(err) {
+			t.Error("worktree should have README_other.md (should be based on other/other-only)")
+		}
+		remoteFilePath = filepath.Join(wtPath, "other-file.txt")
+		if _, err = os.Stat(remoteFilePath); !os.IsNotExist(err) {
+			t.Error("worktree should NOT have other-file.txt (should be based on other/other-only)")
+		}
+
+		// ambiguous name without checkout.defaultRemote
+		out, err = runGitWt(t, binPath, clonePath, "remote-common-name")
+		if err == nil {
+			t.Fatalf("git-wt remote-common-name didn't fail: %v\noutput: %s", err, out)
+		}
+
+		// ambiguous name with checkout.defaultRemote
+		cmd = exec.Command("git", "config", "checkout.defaultRemote", "other")
+		cmd.Dir = clonePath
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git fetch other failed: %v\noutput: %s", err, out)
+		}
+		out, err = runGitWt(t, binPath, clonePath, "remote-common-name")
+		if err != nil {
+			t.Fatalf("git-wt remote-common-name failed: %v\noutput: %s", err, out)
+		}
+		if !strings.Contains(out, "other/remote-common-name") {
+			t.Fatalf("output should contain worktree path with 'other/remote-common-name', got: %s", out)
+		}
+		wtPath = worktreePath(out)
+		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree directory was not created at %s", wtPath)
+		}
+		// Verify the worktree is based on the second commit on other
+		remoteFilePath = filepath.Join(wtPath, "README_other.md")
+		if _, err = os.Stat(remoteFilePath); os.IsNotExist(err) {
+			t.Error("worktree should have README_other.md (should be based on other/remote-common-name)")
+		}
+		remoteFilePath = filepath.Join(wtPath, "other-file.txt")
+		if _, err = os.Stat(remoteFilePath); os.IsNotExist(err) {
+			t.Error("worktree should have other-file.txt (should be based on other/remote-common-name)")
+		}
+	})
+
 	t.Run("with_remote_start_point", func(t *testing.T) {
 		t.Parallel()
 		// Create a "remote" repo

@@ -12,24 +12,20 @@ const gitDefaultBranch = "master"
 // BranchExists checks if a branch exists (local or remote).
 func BranchExists(ctx context.Context, name string) (bool, error) {
 	// Check local branch
-	cmd, err := gitCommand(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+name)
+	exists, err := LocalBranchExists(ctx, name)
 	if err != nil {
 		return false, err
 	}
-	if err := cmd.Run(); err == nil {
+	if exists {
 		return true, nil
 	}
 
-	// Check remote branch (origin)
-	cmd, err = gitCommand(ctx, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+name)
+	// Check remote branch
+	remotes, err := RemoteTrackingBranchesNamed(ctx, name)
 	if err != nil {
 		return false, err
 	}
-	if err := cmd.Run(); err == nil {
-		return true, nil
-	}
-
-	return false, nil
+	return len(remotes) > 0, nil
 }
 
 // LocalBranchExists checks if a local branch exists.
