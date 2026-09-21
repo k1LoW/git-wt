@@ -43,6 +43,7 @@ var (
 	initShell       string
 	nocd            bool
 	branchFlag      string
+	orphanFlag      bool
 	// Config override flags.
 	basedirFlag       string
 	copyignoredFlag   bool
@@ -240,6 +241,7 @@ func init() {
 		panic(err) //nostyle:dontpanic
 	}
 	rootCmd.Flags().StringVarP(&branchFlag, "branch", "b", "", "Use a different branch name than the worktree directory name")
+	rootCmd.Flags().BoolVar(&orphanFlag, "orphan", false, "Create a new unborn branch")
 	// Config override flags.
 	rootCmd.Flags().StringVar(&basedirFlag, "basedir", "", "Override wt.basedir config (worktree base directory)")
 	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")
@@ -318,6 +320,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	var startPoint string
 	if len(args) == 2 {
 		startPoint = args[1]
+		if orphanFlag {
+			return fmt.Errorf("cannot take start-point %q with --orphan", startPoint)
+		}
 	}
 
 	branchName := branchFlag
@@ -1061,6 +1066,9 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 		if startPoint != "" {
 			return fmt.Errorf("worktree for branch %q already exists at %s (start-point %q is not allowed when switching to an existing worktree)", wt.Branch, wt.Path, startPoint)
 		}
+		if orphanFlag {
+			return fmt.Errorf("worktree for branch %q already exists at %s (--orphan is not allowed when switching to an existing worktree)", wt.Branch, wt.Path)
+		}
 		// Worktree exists, switch to it
 		fmt.Println(resolveRelative(ctx, wt.Path, cfg.Relative))
 		return nil
@@ -1090,10 +1098,19 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 		if startPoint != "" {
 			return fmt.Errorf("branch %q already exists (start-point %q is not allowed for existing branches)", branchName, startPoint)
 		}
+		if orphanFlag {
+			return fmt.Errorf("branch %q already exists (--orphan is not allowed for existing branches)", branchName)
+		}
+
 		// Create worktree with existing local branch,
 		// or create new branch using DWIM when matching remote branch exists.
 		if err := git.AddWorktree(ctx, wtPath, branchName, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
+		}
+	} else if orphanFlag {
+		// Branch doesn't exist, create new orphan branch and worktree
+		if err := git.AddWorktreeWithNewOrphanBranch(ctx, wtPath, branchName, copyOpts); err != nil {
+			return fmt.Errorf("failed to create worktree with new orphan branch: %w", err)
 		}
 	} else {
 		// Branch doesn't exist, create new branch and worktree
