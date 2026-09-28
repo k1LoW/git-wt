@@ -339,6 +339,10 @@ func copyAfterAdd(ctx context.Context, ac *addWorktreeContext, dstPath string, c
 
 // AddWorktree creates a new worktree for the given branch.
 func AddWorktree(ctx context.Context, path, branch string, copyOpts CopyOptions) error {
+	if err := ensureUnambiguousRemoteBranch(ctx, branch); err != nil {
+		return err
+	}
+
 	ac, err := prepareAdd(ctx, path)
 	if err != nil {
 		return err
@@ -397,15 +401,56 @@ func qualifyStartPoint(ctx context.Context, startPoint string) (string, error) {
 
 	// Ambiguous: git's own DWIM gives up here too. Honor the same config git
 	// uses to disambiguate before refusing.
-	if values, err := GitConfig(ctx, "checkout.defaultRemote"); err == nil && len(values) > 0 {
-		preferred := values[len(values)-1] + "/" + startPoint
-		if slices.Contains(remotes, preferred) {
-			fmt.Fprintf(os.Stderr, "Using %s as the start point (checkout.defaultRemote)\n", preferred)
-			return preferred, nil
-		}
+	if preferred, ok := defaultRemoteBranch(ctx, startPoint, remotes); ok {
+		fmt.Fprintf(os.Stderr, "Using %s as the start point (checkout.defaultRemote)\n", preferred)
+		return preferred, nil
 	}
 	return "", fmt.Errorf("start point %q has no local branch and matches several remotes (%s): qualify it (e.g. %s) or set checkout.defaultRemote",
 		startPoint, strings.Join(remotes, ", "), remotes[0])
+}
+
+// ensureUnambiguousRemoteBranch refuses a branch that has no local branch and
+// matches several remote-tracking branches, unless checkout.defaultRemote
+// picks one of them.
+//
+// git's DWIM refuses this case as well, but older versions only report
+// "fatal: invalid reference", which does not tell the user how to proceed.
+func ensureUnambiguousRemoteBranch(ctx context.Context, branch string) error {
+	exists, err := LocalBranchExists(ctx, branch)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	remotes, err := RemoteTrackingBranchesNamed(ctx, branch)
+	if err != nil {
+		return err
+	}
+	if len(remotes) < 2 {
+		return nil
+	}
+	// Leave the pick to git's DWIM, which honors checkout.defaultRemote itself.
+	if _, ok := defaultRemoteBranch(ctx, branch, remotes); ok {
+		return nil
+	}
+	return fmt.Errorf("branch %q has no local branch and matches several remotes (%s): specify one as the start point (e.g. %s) or set checkout.defaultRemote",
+		branch, strings.Join(remotes, ", "), remotes[0])
+}
+
+// defaultRemoteBranch returns the entry of remotes that belongs to the remote
+// named by checkout.defaultRemote, if any.
+func defaultRemoteBranch(ctx context.Context, name string, remotes []string) (string, bool) {
+	values, err := GitConfig(ctx, "checkout.defaultRemote")
+	if err != nil || len(values) == 0 {
+		return "", false
+	}
+	preferred := values[len(values)-1] + "/" + name
+	if !slices.Contains(remotes, preferred) {
+		return "", false
+	}
+	return preferred, true
 }
 
 // AddWorktreeWithNewBranch creates a new worktree with a new branch.

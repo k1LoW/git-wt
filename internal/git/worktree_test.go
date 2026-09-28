@@ -3,6 +3,7 @@ package git
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/k1LoW/git-wt/testutil"
@@ -641,5 +642,39 @@ func TestAddWorktreeWithNewBranch_RemoteOnlyStartPointAmbiguous(t *testing.T) {
 	want := repo.Git("rev-parse", "refs/remotes/upstream/develop")
 	if got != want {
 		t.Errorf("worktree HEAD = %s, want upstream/develop (%s)", got, want)
+	}
+}
+
+func TestAddWorktree_RemoteOnlyBranchAmbiguous(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	pushAndDropLocal(t, repo, "origin", "develop")
+	pushAndDropLocal(t, repo, "upstream", "develop")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "develop")
+	err := AddWorktree(t.Context(), wtPath, "develop", CopyOptions{})
+	if err == nil {
+		t.Fatal("expected an error for a branch matching several remotes, got nil")
+	}
+	for _, want := range []string{"origin/develop", "upstream/develop", "checkout.defaultRemote"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q", err, want)
+		}
+	}
+	if _, statErr := os.Stat(wtPath); statErr == nil {
+		t.Error("worktree was created despite the ambiguous branch")
+	}
+
+	// checkout.defaultRemote resolves the ambiguity, as it does for git itself.
+	repo.Git("config", "checkout.defaultRemote", "upstream")
+	if err := AddWorktree(t.Context(), wtPath, "develop", CopyOptions{}); err != nil {
+		t.Fatalf("AddWorktree with checkout.defaultRemote failed: %v", err)
+	}
+	if got := repo.Git("-C", wtPath, "rev-parse", "--abbrev-ref", "develop@{upstream}"); got != "upstream/develop" {
+		t.Errorf("upstream of develop = %q, want %q", got, "upstream/develop")
 	}
 }

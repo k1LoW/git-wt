@@ -424,7 +424,7 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		cmd = exec.Command("git", "remote", "add", "other", otherRepo.Root)
 		cmd.Dir = clonePath
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git checkout failed: %v\noutput: %s", err, out)
+			t.Fatalf("git remote add other failed: %v\noutput: %s", err, out)
 		}
 		cmd = exec.Command("git", "fetch", "other")
 		cmd.Dir = clonePath
@@ -441,7 +441,7 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Fatalf("git-wt origin-only failed: %v\noutput: %s", err, out)
 		}
 		if !strings.Contains(out, "origin/origin-only") {
-			t.Fatalf("output should contain worktree path with 'origin/origin-only', got: %s", out)
+			t.Fatalf("output should show the branch tracking 'origin/origin-only', got: %s", out)
 		}
 		wtPath = worktreePath(out)
 		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
@@ -463,7 +463,7 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Fatalf("git-wt other-only failed: %v\noutput: %s", err, out)
 		}
 		if !strings.Contains(out, "other/other-only") {
-			t.Fatalf("output should contain worktree path with 'other/other-only', got: %s", out)
+			t.Fatalf("output should show the branch tracking 'other/other-only', got: %s", out)
 		}
 		wtPath = worktreePath(out)
 		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
@@ -482,21 +482,26 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		// ambiguous name without checkout.defaultRemote
 		out, err = runGitWt(t, binPath, clonePath, "remote-common-name")
 		if err == nil {
-			t.Fatalf("git-wt remote-common-name didn't fail: %v\noutput: %s", err, out)
+			t.Fatalf("git-wt remote-common-name should fail for a branch on several remotes\noutput: %s", out)
+		}
+		for _, want := range []string{"matches several remotes", "origin/remote-common-name", "other/remote-common-name", "checkout.defaultRemote"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("error should mention %q, got: %s", want, out)
+			}
 		}
 
 		// ambiguous name with checkout.defaultRemote
 		cmd = exec.Command("git", "config", "checkout.defaultRemote", "other")
 		cmd.Dir = clonePath
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git fetch other failed: %v\noutput: %s", err, out)
+			t.Fatalf("git config checkout.defaultRemote failed: %v\noutput: %s", err, out)
 		}
 		out, err = runGitWt(t, binPath, clonePath, "remote-common-name")
 		if err != nil {
 			t.Fatalf("git-wt remote-common-name failed: %v\noutput: %s", err, out)
 		}
 		if !strings.Contains(out, "other/remote-common-name") {
-			t.Fatalf("output should contain worktree path with 'other/remote-common-name', got: %s", out)
+			t.Fatalf("output should show the branch tracking 'other/remote-common-name', got: %s", out)
 		}
 		wtPath = worktreePath(out)
 		if _, err = os.Stat(wtPath); os.IsNotExist(err) {
