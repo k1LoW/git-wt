@@ -8,10 +8,25 @@ import (
 )
 
 func TestBranchExists(t *testing.T) {
+	originRepo := testutil.NewTestRepo(t)
+	originRepo.CreateFile("README.md", "# Test")
+	originRepo.Commit("initial commit")
+	originRepo.Git("branch", "origin-only")
+	originRepo.Git("branch", "remote-common-name")
+
+	otherRepo := testutil.NewTestRepo(t)
+	otherRepo.CreateFile("README.md", "# Test")
+	otherRepo.Commit("initial commit")
+	otherRepo.Git("branch", "other-only")
+	otherRepo.Git("branch", "remote-common-name")
+
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
 	repo.Git("branch", "feature")
+	repo.Git("remote", "add", "origin", originRepo.Root)
+	repo.Git("remote", "add", "other", otherRepo.Root)
+	repo.Git("fetch", "--all")
 
 	restore := repo.Chdir()
 	defer restore()
@@ -24,6 +39,9 @@ func TestBranchExists(t *testing.T) {
 		{"existing local branch", "feature", true},
 		{"main branch", "main", true},
 		{"non-existing branch", "no-such-branch", false},
+		{"branch on origin", "origin-only", true},
+		{"branch on other", "other-only", true},
+		{"branch on origin and other", "remote-common-name", true},
 	}
 
 	for _, tt := range tests {
