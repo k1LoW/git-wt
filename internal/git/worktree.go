@@ -89,7 +89,11 @@ func CurrentLocation(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if isBareRoot {
+	isInsideRepository, err := IsInsideRepository(ctx)
+	if err != nil {
+		return "", err
+	}
+	if isBareRoot || isInsideRepository {
 		return MainRepoRoot(ctx)
 	}
 	return CurrentWorktree(ctx)
@@ -290,9 +294,20 @@ func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
 
 	var srcRoot string
 	if !isBareRoot {
-		srcRoot, err = CurrentWorktree(ctx)
+		isInsideRepository, err := IsInsideRepository(ctx)
 		if err != nil {
 			return nil, err
+		}
+		if isInsideRepository {
+			srcRoot, err = MainRepoRoot(ctx)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			srcRoot, err = CurrentWorktree(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

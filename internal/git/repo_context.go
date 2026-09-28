@@ -17,9 +17,10 @@ import (
 //	{Bare: true,  Worktree: false} — bare repository root (no working tree)
 //	{Bare: true,  Worktree: true}  — linked worktree created from a bare repository
 type RepoContext struct {
-	bare     bool   // true if the main repository is bare
-	worktree bool   // true if running inside a linked worktree (not the main working tree)
-	dir      string // working directory at detection time (used for cache invalidation)
+	bare       bool   // true if the main repository is bare
+	worktree   bool   // true if running inside a linked worktree (not the main working tree)
+	repository bool   // true if running inside a repository directory
+	dir        string // working directory at detection time (used for cache invalidation)
 }
 
 type repoContextKey struct{}
@@ -43,10 +44,11 @@ func RepoContextFrom(ctx context.Context) *RepoContext {
 	return rc
 }
 
-// DetectRepoContext detects whether the current repository is bare and whether
-// the current working directory is inside a linked worktree.
+// DetectRepoContext detects whether the current repository is bare, whether
+// the current working directory is inside a linked worktree and whether the
+// current working directory is inside a repository directory.
 //
-// Detection uses `git rev-parse --is-bare-repository --git-dir --git-common-dir`
+// Detection uses `git rev-parse --is-bare-repository --git-dir --git-common-dir --is-inside-git-dir`
 // in a single process invocation:
 //
 //   - Bare: detected by combining two signals with OR:
@@ -58,12 +60,13 @@ func RepoContextFrom(ctx context.Context) *RepoContext {
 //   - Worktree: gitDir != gitCommonDir
 //     In the main working tree (or bare root), both are equal. In a linked
 //     worktree, gitDir points to a worktrees/X subdirectory.
+//   - Repository: --is-inside-git-dir flag
 func DetectRepoContext(ctx context.Context) (RepoContext, error) {
 	if cached := RepoContextFrom(ctx); cached != nil {
 		return *cached, nil
 	}
 
-	cmd, err := gitCommand(ctx, "rev-parse", "--is-bare-repository", "--path-format=absolute", "--git-dir", "--git-common-dir")
+	cmd, err := gitCommand(ctx, "rev-parse", "--is-bare-repository", "--path-format=absolute", "--git-dir", "--git-common-dir", "--is-inside-git-dir")
 	if err != nil {
 		return RepoContext{}, err
 	}
@@ -71,18 +74,20 @@ func DetectRepoContext(ctx context.Context) (RepoContext, error) {
 	if err != nil {
 		return RepoContext{}, err
 	}
-	lines := strings.SplitN(strings.TrimSpace(string(out)), "\n", 3)
-	if len(lines) != 3 {
+	lines := strings.SplitN(strings.TrimSpace(string(out)), "\n", 4)
+	if len(lines) != 4 {
 		return RepoContext{}, fmt.Errorf("unexpected output from git rev-parse: %q", string(out))
 	}
 
 	isBareFlag := lines[0] == "true"
 	gitDir := lines[1]
 	gitCommonDir := lines[2]
+	isInsideRepository := lines[3] == "true"
 
 	rc := RepoContext{
-		bare:     isBareFlag || filepath.Base(gitCommonDir) != ".git",
-		worktree: gitDir != gitCommonDir,
+		bare:       isBareFlag || filepath.Base(gitCommonDir) != ".git",
+		worktree:   gitDir != gitCommonDir,
+		repository: isInsideRepository,
 	}
 
 	if cwd, err := os.Getwd(); err == nil {
@@ -116,6 +121,15 @@ func IsBareRoot(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return rc.bare && !rc.worktree, nil
+}
+
+// IsInsideRepository reports whether the current directory is below a repository directory.
+func IsInsideRepository(ctx context.Context) (bool, error) {
+	rc, err := DetectRepoContext(ctx)
+	if err != nil {
+		return false, err
+	}
+	return rc.repository, nil
 }
 
 // gitDirs returns the git-dir and git-common-dir for the current repository.

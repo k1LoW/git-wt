@@ -43,6 +43,28 @@ func TestE2E_ListWorktrees(t *testing.T) {
 		}
 	})
 
+	t.Run("basic_in_git", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		gitDir := filepath.Join(repo.Root, ".git")
+		out, err := runGitWt(t, binPath, gitDir)
+		if err != nil {
+			t.Fatalf("git-wt failed: %v\noutput: %s", err, out)
+		}
+
+		// Should contain the main worktree
+		if !strings.Contains(out, repo.Root) {
+			t.Errorf("output should contain repo root %q, got: %s", repo.Root, out)
+		}
+
+		if !strings.Contains(out, "main") {
+			t.Errorf("output should contain 'main' branch, got: %s", out)
+		}
+	})
+
 	// Regression test for fish shell hook issue (PR #14)
 	t.Run("table_format", func(t *testing.T) {
 		t.Parallel()
@@ -306,6 +328,28 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		repo.Commit("initial commit")
 
 		out, err := runGitWt(t, binPath, repo.Root, "feature-branch")
+		if err != nil {
+			t.Fatalf("git-wt feature-branch failed: %v\noutput: %s", err, out)
+		}
+
+		if !strings.Contains(out, "feature-branch") {
+			t.Errorf("output should contain worktree path with 'feature-branch', got: %s", out)
+		}
+
+		wtPath := worktreePath(out)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Errorf("worktree directory was not created at %s", wtPath)
+		}
+	})
+
+	t.Run("basic_in_git", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		gitDir := filepath.Join(repo.Root, ".git")
+		out, err := runGitWt(t, binPath, gitDir, "feature-branch")
 		if err != nil {
 			t.Fatalf("git-wt feature-branch failed: %v\noutput: %s", err, out)
 		}

@@ -242,6 +242,61 @@ func TestIsBareRepository_WorktreeFromBare(t *testing.T) {
 	}
 }
 
+func TestIsInsideRepository_NormalRepo(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	isInsideRepository, err := IsInsideRepository(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if isInsideRepository {
+		t.Error("normal repository root should not be detected as inside a repository directory")
+	}
+
+	err = os.Chdir(".git")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	isInsideRepository, err = IsInsideRepository(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !isInsideRepository {
+		t.Error("normal repository's .git directory should be detected as inside a repository directory")
+	}
+}
+
+func TestIsInsideRepository_BareRepo(t *testing.T) {
+	bareRepo := testutil.NewBareTestRepo(t)
+
+	// Change to the bare repo directory to run git commands there
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(bareRepo.Root); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Fatalf("failed to restore cwd: %v", err)
+		}
+	}()
+
+	isInsideRepository, err := IsInsideRepository(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !isInsideRepository {
+		t.Error("bare repository should be detected as inside a repository directory")
+	}
+}
+
 func TestWithRepoContext_CacheHit(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
