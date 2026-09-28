@@ -242,7 +242,7 @@ func TestIsBareRepository_WorktreeFromBare(t *testing.T) {
 	}
 }
 
-func TestIsInsideRepository_NormalRepo(t *testing.T) {
+func TestIsInsideGitDir_NormalRepo(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -250,28 +250,28 @@ func TestIsInsideRepository_NormalRepo(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	isInsideRepository, err := IsInsideRepository(t.Context())
+	isInsideGitDir, err := IsInsideGitDir(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if isInsideRepository {
-		t.Error("normal repository root should not be detected as inside a repository directory")
+	if isInsideGitDir {
+		t.Error("normal repository root should not be detected as inside the git directory")
 	}
 
 	err = os.Chdir(".git")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	isInsideRepository, err = IsInsideRepository(t.Context())
+	isInsideGitDir, err = IsInsideGitDir(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !isInsideRepository {
-		t.Error("normal repository's .git directory should be detected as inside a repository directory")
+	if !isInsideGitDir {
+		t.Error("normal repository's .git directory should be detected as inside the git directory")
 	}
 }
 
-func TestIsInsideRepository_BareRepo(t *testing.T) {
+func TestIsInsideGitDir_BareRepo(t *testing.T) {
 	bareRepo := testutil.NewBareTestRepo(t)
 
 	// Change to the bare repo directory to run git commands there
@@ -288,12 +288,12 @@ func TestIsInsideRepository_BareRepo(t *testing.T) {
 		}
 	}()
 
-	isInsideRepository, err := IsInsideRepository(t.Context())
+	isInsideGitDir, err := IsInsideGitDir(t.Context())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !isInsideRepository {
-		t.Error("bare repository should be detected as inside a repository directory")
+	if !isInsideGitDir {
+		t.Error("bare repository should be detected as inside the git directory")
 	}
 }
 

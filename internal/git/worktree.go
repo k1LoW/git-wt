@@ -82,18 +82,18 @@ func ListWorktrees(ctx context.Context) ([]Worktree, error) {
 
 // CurrentLocation returns the path that identifies the current position
 // in the worktree list.
-//   - bare root: returns MainRepoRoot() (bare repo directory path)
+//   - bare root or inside the git directory: returns MainRepoRoot()
 //   - worktree or normal repo: returns CurrentWorktree() (--show-toplevel)
 func CurrentLocation(ctx context.Context) (string, error) {
 	isBareRoot, err := IsBareRoot(ctx)
 	if err != nil {
 		return "", err
 	}
-	isInsideRepository, err := IsInsideRepository(ctx)
+	isInsideGitDir, err := IsInsideGitDir(ctx)
 	if err != nil {
 		return "", err
 	}
-	if isBareRoot || isInsideRepository {
+	if isBareRoot || isInsideGitDir {
 		return MainRepoRoot(ctx)
 	}
 	return CurrentWorktree(ctx)
@@ -294,20 +294,9 @@ func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
 
 	var srcRoot string
 	if !isBareRoot {
-		isInsideRepository, err := IsInsideRepository(ctx)
+		srcRoot, err = CurrentLocation(ctx)
 		if err != nil {
 			return nil, err
-		}
-		if isInsideRepository {
-			srcRoot, err = MainRepoRoot(ctx)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			srcRoot, err = CurrentWorktree(ctx)
-			if err != nil {
-				return nil, err
-			}
 		}
 	}
 

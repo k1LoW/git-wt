@@ -17,10 +17,10 @@ import (
 //	{Bare: true,  Worktree: false} — bare repository root (no working tree)
 //	{Bare: true,  Worktree: true}  — linked worktree created from a bare repository
 type RepoContext struct {
-	bare       bool   // true if the main repository is bare
-	worktree   bool   // true if running inside a linked worktree (not the main working tree)
-	repository bool   // true if running inside a repository directory
-	dir        string // working directory at detection time (used for cache invalidation)
+	bare         bool   // true if the main repository is bare
+	worktree     bool   // true if running inside a linked worktree (not the main working tree)
+	insideGitDir bool   // true if running inside the git directory (e.g. .git or a bare repository)
+	dir          string // working directory at detection time (used for cache invalidation)
 }
 
 type repoContextKey struct{}
@@ -46,7 +46,7 @@ func RepoContextFrom(ctx context.Context) *RepoContext {
 
 // DetectRepoContext detects whether the current repository is bare, whether
 // the current working directory is inside a linked worktree and whether the
-// current working directory is inside a repository directory.
+// current working directory is inside the git directory.
 //
 // Detection uses `git rev-parse --is-bare-repository --git-dir --git-common-dir --is-inside-git-dir`
 // in a single process invocation:
@@ -60,7 +60,7 @@ func RepoContextFrom(ctx context.Context) *RepoContext {
 //   - Worktree: gitDir != gitCommonDir
 //     In the main working tree (or bare root), both are equal. In a linked
 //     worktree, gitDir points to a worktrees/X subdirectory.
-//   - Repository: --is-inside-git-dir flag
+//   - InsideGitDir: --is-inside-git-dir flag
 func DetectRepoContext(ctx context.Context) (RepoContext, error) {
 	if cached := RepoContextFrom(ctx); cached != nil {
 		return *cached, nil
@@ -82,12 +82,12 @@ func DetectRepoContext(ctx context.Context) (RepoContext, error) {
 	isBareFlag := lines[0] == "true"
 	gitDir := lines[1]
 	gitCommonDir := lines[2]
-	isInsideRepository := lines[3] == "true"
+	isInsideGitDir := lines[3] == "true"
 
 	rc := RepoContext{
-		bare:       isBareFlag || filepath.Base(gitCommonDir) != ".git",
-		worktree:   gitDir != gitCommonDir,
-		repository: isInsideRepository,
+		bare:         isBareFlag || filepath.Base(gitCommonDir) != ".git",
+		worktree:     gitDir != gitCommonDir,
+		insideGitDir: isInsideGitDir,
 	}
 
 	if cwd, err := os.Getwd(); err == nil {
@@ -123,13 +123,13 @@ func IsBareRoot(ctx context.Context) (bool, error) {
 	return rc.bare && !rc.worktree, nil
 }
 
-// IsInsideRepository reports whether the current directory is below a repository directory.
-func IsInsideRepository(ctx context.Context) (bool, error) {
+// IsInsideGitDir reports whether the current directory is inside the git directory.
+func IsInsideGitDir(ctx context.Context) (bool, error) { //nostyle:repetition
 	rc, err := DetectRepoContext(ctx)
 	if err != nil {
 		return false, err
 	}
-	return rc.repository, nil
+	return rc.insideGitDir, nil
 }
 
 // gitDirs returns the git-dir and git-common-dir for the current repository.
