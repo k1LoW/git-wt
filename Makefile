@@ -21,12 +21,14 @@ lint:
 	go vet -vettool=`which gostyle` -gostyle.config=$(PWD)/.gostyle.yml ./...
 
 depsdev:
-	go install github.com/Songmu/gocredits/cmd/gocredits@latest
 	go install github.com/k1LoW/gostyle@latest
 
-prerelease_for_tagpr: depsdev
-	go mod download
-	gocredits -w .
+credits:
+	go install github.com/Songmu/gocredits/cmd/gocredits@v1.0.0
+	gocredits . > CREDITS
+
+prerelease_for_tagpr:
+	$(MAKE) credits
 	git add CHANGELOG.md CREDITS go.mod go.sum
 
-.PHONY: default ci test build install lint depsdev prerelease_for_tagpr
+.PHONY: default ci test build install lint depsdev prerelease_for_tagpr credits
