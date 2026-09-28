@@ -1109,7 +1109,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 		}
 	} else if orphanFlag {
 		// Branch doesn't exist, create new orphan branch and worktree
-		if err := git.AddWorktreeWithNewOrphanBranch(ctx, wtPath, branchName, copyOpts); err != nil {
+		if err := git.AddWorktreeWithNewOrphanBranch(ctx, wtPath, branchName); err != nil {
 			return fmt.Errorf("failed to create worktree with new orphan branch: %w", err)
 		}
 	} else {
