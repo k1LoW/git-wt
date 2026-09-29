@@ -186,6 +186,41 @@ func TestE2E_CopyOptions(t *testing.T) {
 		}
 	})
 
+	t.Run("multiple_flags_with_orphan", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.CreateFile(".gitignore", ".env\n")
+		repo.CreateFile("tracked.txt", "original")
+		repo.Commit("initial commit")
+
+		// Create various files
+		repo.CreateFile(".env", "SECRET=multi")
+		repo.CreateFile("untracked.txt", "untracked-multi")
+		repo.CreateFile("tracked.txt", "modified-multi")
+
+		// Use multiple copy flags with --orphan
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "--copyignored", "--copyuntracked", "--copymodified", "multi-flag-test")
+		if err != nil {
+			t.Fatalf("failed to create worktree with --orphan and multiple copy flags: %v\noutput: %s", err, out)
+		}
+		wtPath := worktreePath(out)
+
+		// Verify all files were not copied
+		files := []string{
+			".env",
+			"untracked.txt",
+			"tracked.txt",
+		}
+
+		for _, file := range files {
+			path := filepath.Join(wtPath, file)
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Errorf("%s was copied to worktree", file)
+			}
+		}
+	})
+
 	t.Run("flag_overrides_config", func(t *testing.T) {
 		t.Parallel()
 		repo := testutil.NewTestRepo(t)
