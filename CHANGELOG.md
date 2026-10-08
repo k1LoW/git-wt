@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.30.0](https://github.com/k1LoW/git-wt/compare/v0.29.3...v0.30.0) - 2026-10-08
+
+### New Features 🎉
+- feat: add --orphan option to create orphan branch by @yoichi in https://github.com/k1LoW/git-wt/pull/224
+### Other Changes
+- ci: generate CREDITS with gocredits v1.0.0 from a make target by @k1LoW in https://github.com/k1LoW/git-wt/pull/227
+- chore(deps): bump github.com/olekukonko/tablewriter from 1.1.4 to 1.1.5 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/226
+- feat: support list and add in .git directories by @yoichi in https://github.com/k1LoW/git-wt/pull/223
+- feat: support remote branches other than origin by @yoichi in https://github.com/k1LoW/git-wt/pull/222
+- fix: follow up on --orphan with flag checks, docs and error-path tests by @k1LoW in https://github.com/k1LoW/git-wt/pull/230
+- chore(deps): bump the dependencies group across 1 directory with 2 updates by @dependabot[bot] in https://github.com/k1LoW/git-wt/pull/231
+
 ## [v0.29.3](https://github.com/k1LoW/git-wt/compare/v0.29.2...v0.29.3) - 2026-09-11
 
 ### Fix bug 🐛
