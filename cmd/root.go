@@ -80,6 +80,13 @@ Note: git-wt has no subcommands. The first non-flag argument is always a target 
       a command, so 'git wt list' creates a worktree named "list". Run 'git wt' with no
       arguments to list.
 
+Orphan branches:
+  --orphan creates a new branch with no history and an empty working tree (Git 2.42+).
+  - It can be combined with -b, but not with a start-point, and it fails when the
+    branch or the worktree already exists.
+  - No files are copied, whatever wt.copyignored, wt.copyuntracked, wt.copymodified,
+    wt.copy and wt.symlink (or their flags) say, so that it starts clean. Hooks still run.
+
 Deleting:
   -d is the safe form and stops short when something would be lost.
   - If the worktree has modified or untracked files, nothing is deleted.
