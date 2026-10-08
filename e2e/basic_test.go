@@ -945,6 +945,90 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Errorf("git rev-parse --verify HEAD succeeded unexpectedly\noutput: %s", cmdOut)
 		}
 	})
+
+	t.Run("orphan_error_with_start_point", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "feature-branch", "main")
+		if err == nil {
+			t.Fatalf("expected error when start-point is specified with --orphan, but got none\noutput: %s", out)
+		}
+		if !strings.Contains(out, "--orphan") {
+			t.Errorf("error should mention --orphan, got: %s", out)
+		}
+		if _, err := repo.GitE("rev-parse", "--verify", "refs/heads/feature-branch"); err == nil {
+			t.Error("branch feature-branch should not be created")
+		}
+	})
+
+	t.Run("orphan_error_for_existing_branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.Git("branch", "existing-branch")
+
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "existing-branch")
+		if err == nil {
+			t.Fatalf("expected error when --orphan is specified for existing branch, but got none\noutput: %s", out)
+		}
+		if !strings.Contains(out, "--orphan") {
+			t.Errorf("error should mention --orphan, got: %s", out)
+		}
+	})
+
+	t.Run("orphan_error_for_existing_worktree", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		if _, err := runGitWt(t, binPath, repo.Root, "feature-branch"); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "feature-branch")
+		if err == nil {
+			t.Fatalf("expected error when --orphan is specified for existing worktree, but got none\noutput: %s", out)
+		}
+		if !strings.Contains(out, "--orphan") {
+			t.Errorf("error should mention --orphan, got: %s", out)
+		}
+	})
+
+	for _, flag := range []string{"-d", "-D", "-m", "-M"} {
+		t.Run("orphan_error_with_"+flag, func(t *testing.T) {
+			t.Parallel()
+			repo := testutil.NewTestRepo(t)
+			repo.CreateFile("README.md", "# Test")
+			repo.Commit("initial commit")
+
+			out, err := runGitWt(t, binPath, repo.Root, "feature-branch")
+			if err != nil {
+				t.Fatalf("failed to create worktree: %v\noutput: %s", err, out)
+			}
+			wtPath := worktreePath(out)
+
+			args := []string{"--orphan", flag, "feature-branch"}
+			if flag == "-m" || flag == "-M" {
+				args = append(args, "renamed-branch")
+			}
+			out, err = runGitWt(t, binPath, repo.Root, args...)
+			if err == nil {
+				t.Fatalf("expected error when --orphan is combined with %s, but got none\noutput: %s", flag, out)
+			}
+			if !strings.Contains(out, "--orphan") {
+				t.Errorf("error should mention --orphan, got: %s", out)
+			}
+			if _, err := os.Stat(wtPath); err != nil {
+				t.Errorf("worktree %s should be left untouched: %v", wtPath, err)
+			}
+		})
+	}
 }
 
 func TestE2E_SwitchWorktree(t *testing.T) {

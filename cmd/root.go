@@ -285,6 +285,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		if branchFlag != "" {
 			return fmt.Errorf("cannot use -b/--branch with -D/--force-delete")
 		}
+		if orphanFlag {
+			return fmt.Errorf("cannot use --orphan with -D/--force-delete")
+		}
 		if moveFlag || forceMoveFlag {
 			return fmt.Errorf("cannot combine -m/-M with -d/-D")
 		}
@@ -294,6 +297,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	if deleteFlag {
 		if branchFlag != "" {
 			return fmt.Errorf("cannot use -b/--branch with -d/--delete")
+		}
+		if orphanFlag {
+			return fmt.Errorf("cannot use --orphan with -d/--delete")
 		}
 		if moveFlag || forceMoveFlag {
 			return fmt.Errorf("cannot combine -m/-M with -d/-D")
@@ -306,6 +312,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	if moveFlag || forceMoveFlag {
 		if branchFlag != "" {
 			return fmt.Errorf("cannot use -b/--branch with -m/-M")
+		}
+		if orphanFlag {
+			return fmt.Errorf("cannot use --orphan with -m/-M")
 		}
 		return moveWorktree(ctx, cmd, args, forceMoveFlag)
 	}
