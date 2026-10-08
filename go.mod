@@ -1,6 +1,6 @@
 module github.com/k1LoW/git-wt
 
-go 1.26.0
+go 1.26.8
 
 require (
 	github.com/go-git/go-git/v5 v5.19.2
