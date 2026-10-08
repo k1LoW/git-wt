@@ -991,12 +991,16 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "feature-branch")
+		// A new branch name keeps the existing-branch rejection from masking this path.
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "-b", "new-branch", "feature-branch")
 		if err == nil {
 			t.Fatalf("expected error when --orphan is specified for existing worktree, but got none\noutput: %s", out)
 		}
-		if !strings.Contains(out, "--orphan") {
-			t.Errorf("error should mention --orphan, got: %s", out)
+		if !strings.Contains(out, "--orphan is not allowed when switching to an existing worktree") {
+			t.Errorf("error should reject --orphan for the existing worktree, got: %s", out)
+		}
+		if _, err := repo.GitE("rev-parse", "--verify", "refs/heads/new-branch"); err == nil {
+			t.Error("branch new-branch should not be created")
 		}
 	})
 
