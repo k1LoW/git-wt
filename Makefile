@@ -21,7 +21,7 @@ lint:
 	go vet -vettool=`which gostyle` -gostyle.config=$(PWD)/.gostyle.yml ./...
 
 depsdev:
-	go install github.com/k1LoW/gostyle@latest
+	go install github.com/k1LoW/gostyle@v0.26.0
 
 credits:
 	go install github.com/Songmu/gocredits/cmd/gocredits@v1.0.0
