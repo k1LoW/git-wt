@@ -484,6 +484,23 @@ func AddWorktreeWithNewBranch(ctx context.Context, path, branch, startPoint stri
 	return copyAfterAdd(ctx, ac, path, copyOpts)
 }
 
+// AddWorktreeWithNewOrphanBranch creates a new worktree with a new orphan
+// branch using git worktree add --orphan, which requires Git 2.42 or later.
+func AddWorktreeWithNewOrphanBranch(ctx context.Context, path, branch string) error {
+	_, err := prepareAdd(ctx, path)
+	if err != nil {
+		return err
+	}
+
+	cmd, err := gitCommand(ctx, "worktree", "add", "--orphan", "-b", branch, path)
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // baseDirGitignoreContent is the exact content initBaseDir plants into a
 // fresh basedir's .gitignore. It is also used by RemoveEmptyParents to
 // recognize an untouched decoration file when cleaning up.

@@ -871,6 +871,80 @@ func TestE2E_CreateWorktree(t *testing.T) {
 			t.Errorf("switch by dir returned %q, want %q", strings.TrimSpace(stdout3), wtPath)
 		}
 	})
+
+	t.Run("orphan", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "feature-branch")
+		if err != nil {
+			t.Fatalf("git-wt --orphan feature-branch failed: %v\noutput: %s", err, out)
+		}
+
+		if !strings.Contains(out, "feature-branch") {
+			t.Errorf("output should contain worktree path with 'feature-branch', got: %s", out)
+		}
+
+		wtPath := worktreePath(out)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree directory was not created at %s", wtPath)
+		}
+
+		cmd := exec.Command("git", "symbolic-ref", "HEAD")
+		cmd.Dir = wtPath
+		cmdOut, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Errorf("git symbolic-ref HEAD failed: %v\noutput: %s", err, cmdOut)
+		} else if !strings.Contains(string(cmdOut), "refs/heads/feature-branch") {
+			t.Errorf("HEAD should point to 'refs/heads/feature-branch', got: %s", cmdOut)
+		}
+
+		cmd = exec.Command("git", "rev-parse", "--verify", "HEAD")
+		cmd.Dir = wtPath
+		cmdOut, err = cmd.CombinedOutput()
+		if err == nil {
+			t.Errorf("git rev-parse --verify HEAD succeeded unexpectedly\noutput: %s", cmdOut)
+		}
+	})
+
+	t.Run("orphan_with_branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		out, err := runGitWt(t, binPath, repo.Root, "--orphan", "-b", "feature-branch", "feature-wt")
+		if err != nil {
+			t.Fatalf("git-wt --orphan -b feature-branch feature-wt failed: %v\noutput: %s", err, out)
+		}
+
+		if !strings.Contains(out, "feature-wt") {
+			t.Errorf("output should contain worktree path with 'feature-wt', got: %s", out)
+		}
+
+		wtPath := worktreePath(out)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree directory was not created at %s", wtPath)
+		}
+
+		cmd := exec.Command("git", "symbolic-ref", "HEAD")
+		cmd.Dir = wtPath
+		cmdOut, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Errorf("git symbolic-ref HEAD failed: %v\noutput: %s", err, cmdOut)
+		} else if !strings.Contains(string(cmdOut), "refs/heads/feature-branch") {
+			t.Errorf("HEAD should point to 'refs/heads/feature-branch', got: %s", cmdOut)
+		}
+
+		cmd = exec.Command("git", "rev-parse", "--verify", "HEAD")
+		cmd.Dir = wtPath
+		cmdOut, err = cmd.CombinedOutput()
+		if err == nil {
+			t.Errorf("git rev-parse --verify HEAD succeeded unexpectedly\noutput: %s", cmdOut)
+		}
+	})
 }
 
 func TestE2E_SwitchWorktree(t *testing.T) {
