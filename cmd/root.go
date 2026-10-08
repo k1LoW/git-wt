@@ -70,6 +70,7 @@ Examples:
   git wt <branch|worktree|path>                  Switch to worktree (create worktree/branch if needed)
   git wt <branch|worktree|path> <start-point>    Create worktree from start-point (e.g., origin/main)
   git wt -b <branch> <worktree>                  Create worktree with a different branch name
+  git wt --orphan <branch|worktree>              Create worktree with a new orphan branch (Git 2.42+)
   git wt -d <branch|worktree|path>...            Delete worktree and branch (safe)
   git wt -D <branch|worktree|path>...            Force delete worktree and branch
   git wt -m [<old>] <new>                        Rename worktree directory and branch (safe)

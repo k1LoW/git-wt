@@ -9,6 +9,7 @@ $ git wt                            # List all worktrees
 $ git wt --json                     # List all worktrees in JSON format
 $ git wt <branch|worktree|path>     # Switch to worktree (create worktree/branch if needed)
 $ git wt -b <branch> <worktree>     # Create worktree with a different branch name
+$ git wt --orphan <branch|worktree> # Create worktree with a new orphan branch (Git 2.42+)
 $ git wt -d <branch|worktree|path>  # Delete worktree and branch (safe)
 $ git wt -D <branch|worktree|path>  # Force delete worktree and branch
 $ git wt -m [<old>] <new>           # Rename worktree directory and branch (safe)
@@ -53,6 +54,16 @@ You can later switch to the worktree by either branch name or directory name:
 $ git wt user/my-feature  # switch by branch name
 $ git wt my-feature       # switch by directory name
 ```
+
+Use `--orphan` to create a worktree with a new orphan branch, which has no history and starts from an empty working tree:
+
+``` console
+$ git wt --orphan gh-pages
+```
+
+- It requires Git 2.42 or later, which added `git worktree add --orphan`.
+- It can be combined with `-b`, but not with a start-point, and it fails when the branch or the worktree already exists.
+- No files are copied into the new worktree, whatever `wt.copyignored`, `wt.copyuntracked`, `wt.copymodified`, `wt.copy` and `wt.symlink` (or their flags) say, so that it starts clean. Hooks still run.
 
 > [!NOTE]
 > The default branch (e.g., main, master) is protected from accidental deletion or rename. Pass `--allow-delete-default` to override the protection.
