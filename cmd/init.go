@@ -39,6 +39,8 @@ git() {
         local last_line
         last_line=$(printf '%s\n' "$result" | tail -n 1)
         if [[ -d "$last_line" ]]; then
+            local worktree_path
+            worktree_path=$(command git -C "$last_line" rev-parse --show-toplevel)
             # Print all lines except the last (intermediate paths)
             printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && printf '%s\n' "$line"
@@ -55,7 +57,7 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$worktree_path"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
@@ -128,6 +130,8 @@ git() {
         local last_line
         last_line=$(printf '%s\n' "$result" | tail -n 1)
         if [[ -d "$last_line" ]]; then
+            local worktree_path
+            worktree_path=$(command git -C "$last_line" rev-parse --show-toplevel)
             # Print all lines except the last (intermediate paths)
             printf '%s\n' "$result" | sed '$d' | while IFS= read -r line; do
                 [[ -n "$line" ]] && printf '%s\n' "$line"
@@ -144,7 +148,7 @@ git() {
                 # wt.nocd=create only prevents cd for new worktrees
                 if [[ "$rename_flag" == "true" ]]; then
                     should_cd=true  # rename targets existing worktree at new path
-                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$last_line"; then
+                elif printf '%s\n' "$existing_worktrees" | grep -qxF "$worktree_path"; then
                     should_cd=true  # existing worktree, allow cd
                 else
                     should_cd=false  # new worktree, prevent cd
@@ -237,6 +241,7 @@ function git --wraps git
             set last_line $result[-1]
         end
         if test -d "$last_line"
+            set -l worktree_path (command git -C "$last_line" rev-parse --show-toplevel)
             # Print all lines except the last (intermediate paths)
             for line in $result[1..-2]
                 printf "%s\n" "$line"
@@ -253,7 +258,7 @@ function git --wraps git
                 # wt.nocd=create only prevents cd for new worktrees
                 if test "$rename_flag" = "true"
                     set should_cd true  # rename targets existing worktree at new path
-                else if contains -- "$last_line" $existing_worktrees
+                else if contains -- "$worktree_path" $existing_worktrees
                     set should_cd true  # existing worktree, allow cd
                 else
                     set should_cd false  # new worktree, prevent cd
@@ -341,6 +346,7 @@ const powershellGitWrapper = "" +
 	"        # throws under Set-StrictMode.\n" +
 	"        $lastLine = if ($lines.Count -gt 0) { $lines[-1] } else { \"\" }\n" +
 	"        if ($lastLine -and (Test-Path -LiteralPath $lastLine -PathType Container)) {\n" +
+	"            $worktreePath = & git.exe -C $lastLine rev-parse --show-toplevel\n" +
 	"            # Print all lines except the last (intermediate paths)\n" +
 	"            if ($lines.Count -gt 1) {\n" +
 	"                $lines[0..($lines.Count-2)] | ForEach-Object { Write-Output $_ }\n" +
@@ -357,7 +363,7 @@ const powershellGitWrapper = "" +
 	"                # wt.nocd=create only prevents cd for new worktrees\n" +
 	"                if ($renameFlag) {\n" +
 	"                    $shouldCd = $true  # rename targets existing worktree at new path\n" +
-	"                } elseif ($existingWorktrees -contains $lastLine) {\n" +
+	"                } elseif ($existingWorktrees -contains $worktreePath) {\n" +
 	"                    $shouldCd = $true  # existing worktree, allow cd\n" +
 	"                } else {\n" +
 	"                    $shouldCd = $false  # new worktree, prevent cd\n" +

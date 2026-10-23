@@ -515,6 +515,184 @@ pwd
 		}
 	})
 
+	t.Run("nocd_create_relative_bash", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("bash"); err != nil {
+			t.Skip("bash not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("doc/README.md", "# Test")
+		repo.Commit("initial commit")
+
+		// Test that shell integration works: eval the init script and run git wt
+		script := fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init bash)"
+
+git config wt.nocd create
+git worktree add .wt/shell-bash-test
+cd doc
+
+# Test: git wt --relative <branch> should cd to the worktree
+git wt --relative shell-bash-test
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("bash", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("bash shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		output := strings.TrimSpace(string(out))
+		// The last line should be the worktree path
+		lines := strings.Split(output, "\n")
+		pwd := lines[len(lines)-1]
+
+		if !strings.Contains(pwd, "shell-bash-test/doc") {
+			t.Errorf("pwd should contain worktree subdirectory path, got: %s", pwd)
+		}
+	})
+
+	t.Run("nocd_create_relative_zsh", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("zsh"); err != nil {
+			t.Skip("zsh not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("doc/README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+set -e
+cd %q
+export PATH="%s:$PATH"
+eval "$(git wt --init zsh)"
+
+git config wt.nocd create
+git worktree add .wt/shell-zsh-test
+cd doc
+
+# Test: git wt --relative <branch> should cd to the worktree
+git wt --relative shell-zsh-test
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("zsh", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("zsh shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		output := strings.TrimSpace(string(out))
+		lines := strings.Split(output, "\n")
+		pwd := lines[len(lines)-1]
+
+		if !strings.Contains(pwd, "shell-zsh-test/doc") {
+			t.Errorf("pwd should contain worktree subdirectory path, got: %s", pwd)
+		}
+	})
+
+	t.Run("nocd_create_relative_fish", func(t *testing.T) {
+		t.Parallel()
+		if _, err := exec.LookPath("fish"); err != nil {
+			t.Skip("fish not available")
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("doc/README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+cd %q
+set -x PATH %s $PATH
+git wt --init fish | source
+
+git config wt.nocd create
+git worktree add .wt/shell-fish-test
+cd doc
+
+# Test: git wt --relative <branch> should cd to the worktree
+git wt --relative shell-fish-test
+pwd
+`, repo.Root, filepath.Dir(binPath))
+
+		cmd := exec.Command("fish", "-c", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fish shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		output := strings.TrimSpace(string(out))
+		lines := strings.Split(output, "\n")
+		pwd := lines[len(lines)-1]
+
+		if !strings.Contains(pwd, "shell-fish-test/doc") {
+			t.Errorf("pwd should contain worktree subdirectory path, got: %s", pwd)
+		}
+	})
+
+	t.Run("nocd_create_relative_powershell", func(t *testing.T) {
+		t.Parallel()
+		// PowerShell init script uses git.exe which is Windows-specific
+		if runtime.GOOS != "windows" {
+			t.Skip("PowerShell shell integration test is only supported on Windows")
+		}
+
+		// Try pwsh first (cross-platform), then powershell (Windows)
+		var pwshPath string
+		if p, err := exec.LookPath("pwsh"); err == nil {
+			pwshPath = p
+		} else if p, err := exec.LookPath("powershell"); err == nil {
+			pwshPath = p
+		} else {
+			t.Skip("PowerShell not available")
+		}
+
+		binPathLocal := binPath
+		// On Windows, binary needs .exe extension
+		if runtime.GOOS == "windows" && !strings.HasSuffix(binPathLocal, ".exe") {
+			binPathLocal += ".exe"
+		}
+
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("doc/README.md", "# Test")
+		repo.Commit("initial commit")
+
+		script := fmt.Sprintf(`
+$ErrorActionPreference = "Stop"
+Set-Location %q
+$env:PATH = %q + [IO.Path]::PathSeparator + $env:PATH
+Invoke-Expression (git wt --init powershell | Out-String)
+
+git config wt.nocd create
+git worktree add .wt/shell-pwsh-test
+Set-Location doc
+
+# Test: git wt --relative <branch> should cd to the worktree
+git wt --relative shell-pwsh-test
+Get-Location | Select-Object -ExpandProperty Path
+`, repo.Root, filepath.Dir(binPathLocal))
+
+		cmd := exec.Command(pwshPath, "-NoProfile", "-Command", script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("PowerShell shell integration failed: %v\noutput: %s", err, out)
+		}
+
+		output := strings.TrimSpace(string(out))
+		lines := strings.Split(output, "\n")
+		pwd := strings.TrimSpace(lines[len(lines)-1])
+
+		if !strings.Contains(pwd, "shell-pwsh-test\\doc") {
+			t.Errorf("pwd should contain worktree subdirectory path, got: %s", pwd)
+		}
+	})
+
 	t.Run("hook_failure_bash", func(t *testing.T) {
 		t.Parallel()
 		if _, err := exec.LookPath("bash"); err != nil {
