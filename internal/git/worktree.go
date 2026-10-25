@@ -304,7 +304,7 @@ func prepareAdd(ctx context.Context, path string) (*addWorktreeContext, error) {
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	if err := initBaseDir(parentDir); err != nil {
+	if err := initBaseDir(ctx, parentDir); err != nil {
 		return nil, err
 	}
 
@@ -522,7 +522,19 @@ This directory contains Git worktrees created with ` + "`git wt`" + `.
 
 // initBaseDir initializes the basedir with .gitignore and README.md files.
 // It creates these files only if they don't already exist.
-func initBaseDir(baseDir string) error {
+func initBaseDir(ctx context.Context, baseDir string) error {
+	cmd, err := gitCommand(ctx, "-C", baseDir, "rev-parse", "--is-inside-work-tree")
+	if err != nil {
+		return nil
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	if strings.TrimSpace(string(out)) != "true" {
+		return nil
+	}
+
 	gitignorePath := filepath.Join(baseDir, ".gitignore")
 	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
 		if err := os.WriteFile(gitignorePath, []byte(baseDirGitignoreContent), 0600); err != nil {
@@ -590,7 +602,7 @@ func MoveWorktree(ctx context.Context, oldPath, newPath string, force bool) erro
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	if err := initBaseDir(parentDir); err != nil {
+	if err := initBaseDir(ctx, parentDir); err != nil {
 		return err
 	}
 

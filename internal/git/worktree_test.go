@@ -277,7 +277,7 @@ func TestAddWorktree(t *testing.T) {
 	restore := repo.Chdir()
 	defer restore()
 
-	wtPath := filepath.Join(repo.ParentDir(), "worktree-existing")
+	wtPath := filepath.Join(repo.Root, "worktree-existing")
 	err := AddWorktree(t.Context(), wtPath, "existing-branch", CopyOptions{})
 	if err != nil {
 		t.Fatalf("AddWorktree failed: %v", err)
@@ -307,7 +307,93 @@ func TestAddWorktree(t *testing.T) {
 	}
 }
 
+func TestAddWorktreeOutside(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+	repo.Git("branch", "existing-branch")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.ParentDir(), "worktree-existing")
+	err := AddWorktree(t.Context(), wtPath, "existing-branch", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Verify worktree was created
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Error("worktree directory was not created")
+	}
+
+	// Verify basedir files were created
+	baseDir := filepath.Dir(wtPath)
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); !os.IsNotExist(err) {
+		t.Error(".gitignore was created in basedir")
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); !os.IsNotExist(err) {
+		t.Error("README.md was created in basedir")
+	}
+
+	// Verify it appears in worktree list
+	wt, err := FindWorktreeByBranch(t.Context(), "existing-branch")
+	if err != nil {
+		t.Fatalf("FindWorktreeByBranch failed: %v", err)
+	}
+	if wt == nil {
+		t.Error("worktree not found after creation")
+	}
+}
+
 func TestAddWorktreeWithNewBranch(t *testing.T) {
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile("README.md", "# Test")
+	repo.Commit("initial commit")
+
+	restore := repo.Chdir()
+	defer restore()
+
+	wtPath := filepath.Join(repo.Root, "worktree-new")
+	err := AddWorktreeWithNewBranch(t.Context(), wtPath, "new-branch", "", CopyOptions{})
+	if err != nil {
+		t.Fatalf("AddWorktreeWithNewBranch failed: %v", err)
+	}
+
+	// Verify worktree was created
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Error("worktree directory was not created")
+	}
+
+	// Verify basedir files were created
+	baseDir := filepath.Dir(wtPath)
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); os.IsNotExist(err) {
+		t.Error(".gitignore was not created in basedir")
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); os.IsNotExist(err) {
+		t.Error("README.md was not created in basedir")
+	}
+
+	// Verify branch was created
+	exists, err := LocalBranchExists(t.Context(), "new-branch")
+	if err != nil {
+		t.Fatalf("LocalBranchExists failed: %v", err)
+	}
+	if !exists {
+		t.Error("branch was not created")
+	}
+
+	// Verify it appears in worktree list
+	wt, err := FindWorktreeByBranch(t.Context(), "new-branch")
+	if err != nil {
+		t.Fatalf("FindWorktreeByBranch failed: %v", err)
+	}
+	if wt == nil {
+		t.Error("worktree not found after creation")
+	}
+}
+
+func TestAddWorktreeWithNewBranchOutside(t *testing.T) {
 	repo := testutil.NewTestRepo(t)
 	repo.CreateFile("README.md", "# Test")
 	repo.Commit("initial commit")
@@ -328,11 +414,11 @@ func TestAddWorktreeWithNewBranch(t *testing.T) {
 
 	// Verify basedir files were created
 	baseDir := filepath.Dir(wtPath)
-	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); os.IsNotExist(err) {
-		t.Error(".gitignore was not created in basedir")
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); !os.IsNotExist(err) {
+		t.Error(".gitignore was created in basedir")
 	}
-	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); os.IsNotExist(err) {
-		t.Error("README.md was not created in basedir")
+	if _, err := os.Stat(filepath.Join(baseDir, "README.md")); !os.IsNotExist(err) {
+		t.Error("README.md was created in basedir")
 	}
 
 	// Verify branch was created
@@ -384,8 +470,8 @@ func TestAddWorktree_FromBareRepository(t *testing.T) {
 
 	// Verify basedir files were created
 	baseDir := filepath.Dir(wtPath)
-	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); os.IsNotExist(err) {
-		t.Error(".gitignore was not created in basedir")
+	if _, err := os.Stat(filepath.Join(baseDir, ".gitignore")); !os.IsNotExist(err) {
+		t.Error(".gitignore was created in basedir")
 	}
 
 	// Verify it appears in worktree list
