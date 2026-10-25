@@ -46,6 +46,7 @@ var (
 	orphanFlag      bool
 	// Config override flags.
 	basedirFlag       string
+	dirnameFlag       string
 	copyignoredFlag   bool
 	copyuntrackedFlag bool
 	copymodifiedFlag  bool
@@ -132,6 +133,14 @@ Configuration:
     Supported template variables: {gitroot} (repository root directory name)
     Default: .wt
     Example: git config wt.basedir "../{gitroot}-wt"
+
+  wt.dirname (--dirname)
+    Worktree directory name relative to the base directory.
+    Supported template variables:
+      - {gitroot} (repository root directory name)
+      - {worktree} (specified worktree name)
+    Default: {worktree}
+    Example: git config wt.dirname "{gitroot}-{worktree}"
 
   wt.copyignored (--copyignored)
     Copy .gitignore'd files (e.g., .env) to new worktrees.
@@ -252,6 +261,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&orphanFlag, "orphan", false, "Create a new unborn branch")
 	// Config override flags.
 	rootCmd.Flags().StringVar(&basedirFlag, "basedir", "", "Override wt.basedir config (worktree base directory)")
+	rootCmd.Flags().StringVar(&dirnameFlag, "dirname", "", "Override wt.dirname config (worktree directory name)")
 	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")
 	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
@@ -361,6 +371,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	// Apply flag overrides
 	if cmd.Flags().Changed("basedir") {
 		cfg.BaseDir = basedirFlag
+	}
+	if cmd.Flags().Changed("dirname") {
+		cfg.DirName = dirnameFlag
 	}
 	if cmd.Flags().Changed("copyignored") {
 		cfg.CopyIgnored = copyignoredFlag
@@ -1092,7 +1105,7 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 	}
 
 	// Get worktree path using the worktree name (not the branch name)
-	wtPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, wtName)
+	wtPath, err := git.WorktreePathFor(ctx, cfg.BaseDir, cfg.DirName, wtName)
 	if err != nil {
 		return fmt.Errorf("failed to get worktree path: %w", err)
 	}

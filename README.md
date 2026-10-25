@@ -166,6 +166,16 @@ Default: `.wt`
 >
 > Placing worktrees inside the `.git` directory (e.g., `.git/wt`) resolves these issues, as most tools ignore `.git`.
 
+#### `wt.dirname` / `--dirname`
+
+Worktree directory name relative to the base directory.
+
+Supported template variables:
+- `{gitroot}`: repository root directory name
+- `{worktree}`: specified worktree name
+
+Default: `{worktree}`
+
 #### `wt.copyignored` / `--copyignored`
 
 Copy files ignored by `.gitignore` (e.g., `.env`) to new worktrees.
