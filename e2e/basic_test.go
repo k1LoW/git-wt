@@ -392,6 +392,52 @@ func TestE2E_CreateWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("with_default_start_point", func(t *testing.T) {
+		t.Parallel()
+		repo := testutil.NewTestRepo(t)
+		repo.CreateFile("README.md", "# Test")
+		repo.Commit("initial commit")
+
+		repo.CreateFile("main-file.txt", "main content")
+		repo.Commit("main commit")
+
+		repo.Git("branch", "old-base", "HEAD~1")
+
+		// specify default start-point
+		stdout, stderr, err := runGitWtStdout(t, binPath, repo.Root, "--startpoint", "old-base", "feature-from-old")
+		if err != nil {
+			t.Fatalf("git-wt with start-point failed: %v\nstderr: %s", err, stderr)
+		}
+
+		wtPath := strings.TrimSpace(stdout)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree was not created at %s", wtPath)
+		}
+
+		// Verify the worktree is based on old-base (should NOT have main-file.txt)
+		mainFilePath := filepath.Join(wtPath, "main-file.txt")
+		if _, err := os.Stat(mainFilePath); !os.IsNotExist(err) {
+			t.Error("worktree should NOT have main-file.txt (should be based on old-base, not main)")
+		}
+
+		// default start-point is ignored when start-point is specified
+		stdout, stderr, err = runGitWtStdout(t, binPath, repo.Root, "--startpoint", "old-base", "feature-from-main", "main")
+		if err != nil {
+			t.Fatalf("git-wt with start-point failed: %v\nstderr: %s", err, stderr)
+		}
+
+		wtPath = strings.TrimSpace(stdout)
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Fatalf("worktree was not created at %s", wtPath)
+		}
+
+		// Verify the worktree is based on main (should have main-file.txt)
+		mainFilePath = filepath.Join(wtPath, "main-file.txt")
+		if _, err := os.Stat(mainFilePath); os.IsNotExist(err) {
+			t.Error("worktree should have main-file.txt (should be based on main)")
+		}
+	})
+
 	t.Run("with_remote", func(t *testing.T) {
 		t.Parallel()
 		// Create the "origin" repo

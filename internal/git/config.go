@@ -12,6 +12,7 @@ import (
 
 const (
 	configKeyBaseDir       = "wt.basedir"
+	configKeyStartPoint    = "wt.startpoint"
 	configKeyCopyIgnored   = "wt.copyignored"
 	configKeyCopyUntracked = "wt.copyuntracked"
 	configKeyCopyModified  = "wt.copymodified"
@@ -28,6 +29,7 @@ const (
 // Config holds all wt configuration values.
 type Config struct {
 	BaseDir       string
+	StartPoint    string
 	CopyIgnored   bool
 	CopyUntracked bool
 	CopyModified  bool
@@ -76,6 +78,17 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		cfg.BaseDir = ".wt"
 	} else {
 		cfg.BaseDir = baseDir[len(baseDir)-1]
+	}
+
+	// StartPoint
+	startPoint, err := GitConfig(ctx, configKeyStartPoint)
+	if err != nil {
+		return cfg, err
+	}
+	if len(startPoint) == 0 {
+		cfg.StartPoint = ""
+	} else {
+		cfg.StartPoint = startPoint[len(startPoint)-1]
 	}
 
 	// CopyIgnored

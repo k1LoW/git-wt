@@ -46,6 +46,7 @@ var (
 	orphanFlag      bool
 	// Config override flags.
 	basedirFlag       string
+	startpointFlag    string
 	copyignoredFlag   bool
 	copyuntrackedFlag bool
 	copymodifiedFlag  bool
@@ -132,6 +133,12 @@ Configuration:
     Supported template variables: {gitroot} (repository root directory name)
     Default: .wt
     Example: git config wt.basedir "../{gitroot}-wt"
+
+  wt.startpoint (--startpoint)
+    The default start-point used when creating a branch if the start-point
+    argument is not specified.
+    Default: ""
+    Example: git config wt.startpoint "origin/main"
 
   wt.copyignored (--copyignored)
     Copy .gitignore'd files (e.g., .env) to new worktrees.
@@ -252,6 +259,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&orphanFlag, "orphan", false, "Create a new unborn branch")
 	// Config override flags.
 	rootCmd.Flags().StringVar(&basedirFlag, "basedir", "", "Override wt.basedir config (worktree base directory)")
+	rootCmd.Flags().StringVar(&startpointFlag, "startpoint", "", "Override wt.startpoint config (default start-point)")
 	rootCmd.Flags().BoolVar(&copyignoredFlag, "copyignored", false, "Override wt.copyignored config (copy .gitignore'd files)")
 	rootCmd.Flags().BoolVar(&copyuntrackedFlag, "copyuntracked", false, "Override wt.copyuntracked config (copy untracked files)")
 	rootCmd.Flags().BoolVar(&copymodifiedFlag, "copymodified", false, "Override wt.copymodified config (copy modified files)")
@@ -361,6 +369,9 @@ func loadConfig(ctx context.Context, cmd *cobra.Command) (git.Config, error) {
 	// Apply flag overrides
 	if cmd.Flags().Changed("basedir") {
 		cfg.BaseDir = basedirFlag
+	}
+	if cmd.Flags().Changed("startpoint") {
+		cfg.StartPoint = startpointFlag
 	}
 	if cmd.Flags().Changed("copyignored") {
 		cfg.CopyIgnored = copyignoredFlag
@@ -1131,6 +1142,9 @@ func handleWorktree(ctx context.Context, cmd *cobra.Command, wtName, branchName,
 		}
 	} else {
 		// Branch doesn't exist, create new branch and worktree
+		if startPoint == "" {
+			startPoint = cfg.StartPoint
+		}
 		if err := git.AddWorktreeWithNewBranch(ctx, wtPath, branchName, startPoint, copyOpts); err != nil {
 			return fmt.Errorf("failed to create worktree with new branch: %w", err)
 		}

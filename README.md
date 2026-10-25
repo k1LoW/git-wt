@@ -166,6 +166,12 @@ Default: `.wt`
 >
 > Placing worktrees inside the `.git` directory (e.g., `.git/wt`) resolves these issues, as most tools ignore `.git`.
 
+#### `wt.startpoint` / `--startpoint`
+
+The default start-point used when creating a branch if the start-point argument is not specified.
+Setting this to, for example, "origin/main" is useful in a triangle workflow.
+Default: ""
+
 #### `wt.copyignored` / `--copyignored`
 
 Copy files ignored by `.gitignore` (e.g., `.env`) to new worktrees.
