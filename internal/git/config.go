@@ -12,6 +12,7 @@ import (
 
 const (
 	configKeyBaseDir       = "wt.basedir"
+	configKeyDirName       = "wt.dirname"
 	configKeyCopyIgnored   = "wt.copyignored"
 	configKeyCopyUntracked = "wt.copyuntracked"
 	configKeyCopyModified  = "wt.copymodified"
@@ -28,6 +29,7 @@ const (
 // Config holds all wt configuration values.
 type Config struct {
 	BaseDir       string
+	DirName       string
 	CopyIgnored   bool
 	CopyUntracked bool
 	CopyModified  bool
@@ -76,6 +78,17 @@ func LoadConfig(ctx context.Context) (Config, error) {
 		cfg.BaseDir = ".wt"
 	} else {
 		cfg.BaseDir = baseDir[len(baseDir)-1]
+	}
+
+	// DirName
+	dirName, err := GitConfig(ctx, configKeyDirName)
+	if err != nil {
+		return cfg, err
+	}
+	if len(dirName) == 0 {
+		cfg.DirName = "{worktree}"
+	} else {
+		cfg.DirName = dirName[len(dirName)-1]
 	}
 
 	// CopyIgnored
@@ -163,7 +176,8 @@ func LoadConfig(ctx context.Context) (Config, error) {
 // expandTemplate expands template variables in a string.
 // Supported variables:
 //   - {gitroot}: repository root directory name
-func expandTemplate(ctx context.Context, s string) (string, error) {
+//   - {worktree}: given worktree name
+func expandTemplate(ctx context.Context, s, wtName string) (string, error) {
 	// Expand {gitroot}
 	if strings.Contains(s, "{gitroot}") {
 		repoName, err := RepoName(ctx)
@@ -171,6 +185,11 @@ func expandTemplate(ctx context.Context, s string) (string, error) {
 			return "", err
 		}
 		s = strings.ReplaceAll(s, "{gitroot}", repoName)
+	}
+
+	// Expand {worktree}
+	if wtName != "" && strings.Contains(s, "{worktree}") {
+		s = strings.ReplaceAll(s, "{worktree}", wtName)
 	}
 
 	return s, nil
@@ -206,7 +225,7 @@ func ExpandPath(ctx context.Context, path string) (string, error) {
 // ExpandBaseDir expands template variables and path for the given base directory pattern.
 func ExpandBaseDir(ctx context.Context, baseDir string) (string, error) {
 	// Expand template variables
-	expanded, err := expandTemplate(ctx, baseDir)
+	expanded, err := expandTemplate(ctx, baseDir, "")
 	if err != nil {
 		return "", err
 	}
@@ -238,12 +257,19 @@ func SetConfig(ctx context.Context, key, value string) error {
 	return cmd.Run()
 }
 
-// WorktreePathFor returns the full path for a worktree given a base directory pattern and branch name.
-func WorktreePathFor(ctx context.Context, baseDir, branch string) (string, error) {
+// WorktreePathFor returns the full path for a worktree given a base directory pattern, a directory name pattern and worktree name.
+func WorktreePathFor(ctx context.Context, baseDir, dirName, wtName string) (string, error) {
+	// TODO: error out when dirName contains path separators
+
 	expandedBaseDir, err := ExpandBaseDir(ctx, baseDir)
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(expandedBaseDir, branch), nil
+	expandedWtName, err := expandTemplate(ctx, dirName, wtName)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(expandedBaseDir, expandedWtName), nil
 }

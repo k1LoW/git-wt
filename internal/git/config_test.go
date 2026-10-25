@@ -191,7 +191,7 @@ func TestWorktreePathFor(t *testing.T) {
 	defer restore()
 
 	// Test with default pattern basedir
-	path, err := WorktreePathFor(t.Context(), "../{gitroot}-wt", "feature-branch")
+	path, err := WorktreePathFor(t.Context(), "../{gitroot}-wt", "{worktree}", "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -203,12 +203,23 @@ func TestWorktreePathFor(t *testing.T) {
 	}
 
 	// Test with custom basedir
-	path, err = WorktreePathFor(t.Context(), "../{gitroot}-worktrees", "feature-branch")
+	path, err = WorktreePathFor(t.Context(), "../{gitroot}-worktrees", "{worktree}", "feature-branch")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	expectedDir = filepath.Clean(filepath.Join(repo.Root, "../repo-worktrees/feature-branch"))
+	if path != expectedDir {
+		t.Errorf("WorktreePathFor(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir)
+	}
+
+	// Test with custom dirname
+	path, err = WorktreePathFor(t.Context(), "..", "{gitroot}+{worktree}", "feature")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedDir = filepath.Clean(filepath.Join(repo.Root, "../repo+feature"))
 	if path != expectedDir {
 		t.Errorf("WorktreePathFor(\"feature-branch\") with custom basedir = %q, want %q", path, expectedDir)
 	}
