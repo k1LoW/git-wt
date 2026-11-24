@@ -194,7 +194,7 @@ func collectTopLevelDirs(files []string) []string {
 
 // listIgnoredFiles returns files ignored by .gitignore.
 func listIgnoredFiles(ctx context.Context, root string) ([]string, error) {
-	cmd, err := gitCommand(ctx, "ls-files", "--others", "--ignored", "--exclude-standard")
+	cmd, err := gitCommand(ctx, "ls-files", "-z", "--others", "--ignored", "--exclude-standard")
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func listIgnoredFiles(ctx context.Context, root string) ([]string, error) {
 
 // ListUntrackedFiles returns untracked files (not ignored).
 func ListUntrackedFiles(ctx context.Context, root string) ([]string, error) {
-	cmd, err := gitCommand(ctx, "ls-files", "--others", "--exclude-standard")
+	cmd, err := gitCommand(ctx, "ls-files", "-z", "--others", "--exclude-standard")
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func ListUntrackedFiles(ctx context.Context, root string) ([]string, error) {
 
 // ListModifiedFiles returns tracked files with modifications.
 func ListModifiedFiles(ctx context.Context, root string) ([]string, error) {
-	cmd, err := gitCommand(ctx, "ls-files", "--modified")
+	cmd, err := gitCommand(ctx, "ls-files", "-z", "--modified")
 	if err != nil {
 		return nil, err
 	}
@@ -234,18 +234,19 @@ func ListModifiedFiles(ctx context.Context, root string) ([]string, error) {
 	return parseFileList(string(out)), nil
 }
 
+// parseFileList parses the output of git ls-files -z. Without -z, git quotes
+// file names with non-ASCII or special characters.
 func parseFileList(out string) []string {
 	var files []string
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	for file := range strings.SplitSeq(out, "\x00") {
+		if file == "" {
 			continue
 		}
 		// Skip .git directory
-		if strings.HasPrefix(line, ".git/") {
+		if strings.HasPrefix(file, ".git/") {
 			continue
 		}
-		files = append(files, line)
+		files = append(files, file)
 	}
 	return files
 }
