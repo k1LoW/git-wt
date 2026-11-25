@@ -1,8 +1,10 @@
 package git
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -125,6 +127,56 @@ func TestCopyFilesToWorktree_Modified(t *testing.T) {
 	}
 	if string(content) != "modified content" {
 		t.Errorf("tracked.txt content = %q, want %q", string(content), "modified content")
+	}
+}
+
+func TestCopyFilesToWorktree_SpecialFileNames(t *testing.T) {
+	names := []string{"日本語.txt", "with space.txt", " leading space.txt"}
+	if runtime.GOOS != "windows" {
+		names = append(names, "tab\there.txt", `quote".txt`, `back\slash.txt`, "new\nline.txt", "trailing space ")
+	}
+
+	repo := testutil.NewTestRepo(t)
+	repo.CreateFile(".gitignore", "ignored/\n")
+	for _, name := range names {
+		repo.CreateFile(filepath.Join("modified", name), "original")
+	}
+	repo.Commit("initial commit")
+
+	for _, name := range names {
+		repo.CreateFile(filepath.Join("ignored", name), "ignored")
+		repo.CreateFile(filepath.Join("untracked", name), "untracked")
+		repo.CreateFile(filepath.Join("modified", name), "modified")
+	}
+
+	dstDir := filepath.Join(repo.ParentDir(), "dst")
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		t.Fatalf("failed to create dst dir: %v", err)
+	}
+
+	restore := repo.Chdir()
+	defer restore()
+
+	opts := CopyOptions{CopyIgnored: true, CopyUntracked: true, CopyModified: true}
+	var warn bytes.Buffer
+	if err := CopyFilesToWorktree(t.Context(), repo.Root, dstDir, opts, &warn); err != nil {
+		t.Fatalf("CopyFilesToWorktree failed: %v", err)
+	}
+	if warn.Len() > 0 {
+		t.Errorf("unexpected warnings:\n%s", warn.String())
+	}
+
+	for _, name := range names {
+		for _, dir := range []string{"ignored", "untracked", "modified"} {
+			content, err := os.ReadFile(filepath.Join(dstDir, dir, name))
+			if err != nil {
+				t.Errorf("%s file %q was not copied: %v", dir, name, err)
+				continue
+			}
+			if string(content) != dir {
+				t.Errorf("%s file %q content = %q, want %q", dir, name, content, dir)
+			}
+		}
 	}
 }
 
